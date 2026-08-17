@@ -1,0 +1,58 @@
+name: Deploy to IGA Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 在 GitHub 仓库 Settings > Secrets and variables > Actions > Variables 中添加:
+# VITE_API_BASE_URL = https://你的railway后端地址/api/v1
+# VITE_WS_URL = https://你的railway后端地址
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Debug env vars
+        working-directory: frontend
+        run: |
+          echo "VITE_API_BASE_URL from vars: ${{ vars.VITE_API_BASE_URL }}"
+          echo "VITE_WS_URL from vars: ${{ vars.VITE_WS_URL }}"
+          echo "--- .env.production content ---"
+          cat .env.production || echo "No .env.production file"
+
+      - name: Build frontend
+        working-directory: frontend
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_WS_URL: ${{ vars.VITE_WS_URL }}
+        run: npm run build
+
+      - name: Verify build output
+        working-directory: frontend
+        run: |
+          echo "--- Checking if Railway URL is in build ---"
+          grep -l "resplendent-caring" dist/assets/*.js && echo "✅ Railway URL found in build" || echo "❌ Railway URL NOT found in build"
+
+      - name: Install @iga-pages/cli
+        run: npm i -g @iga-pages/cli@latest
+
+      - name: IGA Pages Login (AK/SK)
+        run: iga login --accessKey "${{ secrets.VOLC_ACCESS_KEY }}" --secretKey "${{ secrets.VOLC_SECRET_KEY }}"
+
+      - name: Deploy to IGA Pages
+        working-directory: frontend
+        run: iga pages deploy --name campus-flea

@@ -1,0 +1,164 @@
+/* ============ Element Plus 主题变量覆盖 ============ */
+:root {
+  --el-color-primary: #4caf50;
+  --el-color-primary-light-3: #6fbf73;
+  --el-color-primary-light-5: #9fd4a2;
+  --el-color-primary-light-7: #cfe9d0;
+  --el-color-primary-light-8: #e0f0e1;
+  --el-color-primary-light-9: #e8f5e9;
+  --el-color-primary-dark-2: #388e3c;
+  --el-color-warning: #ff9800;
+  --el-color-warning-light-3: #ffb13d;
+  --el-color-warning-light-5: #ffc670;
+  --el-color-warning-light-7: #ffd9a3;
+  --el-color-warning-light-9: #fff3e0;
+  --el-color-warning-dark-2: #f57c00;
+}
+
+/* ============ 全局变量 ============ */
+:root {
+  --primary-color: #4caf50;
+  --primary-light: #e8f5e9;
+  --primary-dark: #388e3c;
+  --secondary-color: #ff9800;
+  --secondary-light: #fff3e0;
+  --text-primary: #303133;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+  --border-color: #ebeef5;
+  --bg-color: #f5f7fa;
+  --card-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --card-shadow-hover: 0 6px 20px rgba(76, 175, 80, 0.15);
+  --radius-base: 8px;
+  --radius-lg: 12px;
+}
+
+/* ============ 基础重置 ============ */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background-color: var(--bg-color);
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: color 0.2s;
+  &:hover {
+    color: var(--primary-dark);
+  }
+}
+
+ul,
+li {
+  list-style: none;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+}
+
+/* ============ 通用工具类 ============ */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.page-wrapper {
+  min-height: calc(100vh - 64px);
+  padding: 20px 0;
+}
+
+.text-primary {
+  color: var(--primary-color);
+}
+.text-secondary {
+  color: var(--secondary-color);
+}
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.text-ellipsis-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============ 卡片通用样式 ============ */
+.card {
+  background: #fff;
+  border-radius: var(--radius-base);
+  box-shadow: var(--card-shadow);
+  transition: box-shadow 0.3s, transform 0.3s;
+  &:hover {
+    box-shadow: var(--card-shadow-hover);
+  }
+}
+
+/* ============ 价格样式 ============ */
+.price {
+  color: #ff4d4f;
+  font-weight: 600;
+  &::before {
+    content: '¥';
+    font-size: 0.8em;
+    margin-right: 1px;
+  }
+}
+.original-price {
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  font-size: 12px;
+}
+
+/* ============ 滚动条 ============ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+  &:hover {
+    background: #a8a8a8;
+  }
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ============ 响应式 ============ */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 12px;
+  }
+  .hidden-mobile {
+    display: none !important;
+  }
+}
+@media (min-width: 769px) {
+  .hidden-pc {
+    display: none !important;
+  }
+}

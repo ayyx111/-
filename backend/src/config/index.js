@@ -1,0 +1,88 @@
+/**
+ * 全局配置聚合
+ * 统一从环境变量读取配置,并在加载时校验关键项
+ */
+require('dotenv').config();
+
+const config = {
+  // 应用
+  env: process.env.NODE_ENV || 'development',
+  port: parseInt(process.env.PORT, 10) || 3000,
+  appName: process.env.APP_NAME || 'campus-fish-backend',
+
+  // 数据库
+  db: {
+    type: process.env.DB_TYPE || 'sqlite', // 'sqlite' | 'mysql' | 'postgres'
+    // PostgreSQL/MySQL 连接URL(Railway 等平台自动提供 DATABASE_URL)
+    url: process.env.DATABASE_URL || '',
+    // Railway 独立 PG 变量(当 DATABASE_URL 未设置时使用)
+    pgHost: process.env.PGHOST || '',
+    pgPort: parseInt(process.env.PGPORT, 10) || 0,
+    pgUser: process.env.PGUSER || '',
+    pgPassword: process.env.PGPASSWORD || '',
+    pgDatabase: process.env.PGDATABASE || '',
+    // MySQL配置
+    host: process.env.DB_HOST || '127.0.0.1',
+    port: parseInt(process.env.DB_PORT, 10) || 3306,
+    user: process.env.DB_USER || 'root',
+    password: process.env.DB_PASSWORD || '',
+    database: process.env.DB_NAME || 'campus_fish',
+    poolMin: parseInt(process.env.DB_POOL_MIN, 10) || 5,
+    poolMax: parseInt(process.env.DB_POOL_MAX, 10) || 20,
+    poolIdle: parseInt(process.env.DB_POOL_IDLE, 10) || 10000,
+    // SQLite配置
+    storage: process.env.DB_STORAGE || './database.sqlite',
+    sync: String(process.env.DB_SYNC).toLowerCase() === 'true',
+    // 是否强制重建表(生产环境应为 false)
+    syncForce: String(process.env.DB_SYNC_FORCE || (process.env.NODE_ENV === 'production' ? 'false' : 'true')).toLowerCase() === 'true'
+  },
+
+  // JWT
+  jwt: {
+    secret: process.env.JWT_SECRET || 'campus_fish_jwt_secret_change_me_2026',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || 'campus_fish_jwt_refresh_secret_change_me_2026',
+    accessExpires: parseInt(process.env.JWT_ACCESS_EXPIRES, 10) || 7200,
+    refreshExpires: parseInt(process.env.JWT_REFRESH_EXPIRES, 10) || 604800,
+    issuer: process.env.JWT_ISSUER || 'campus-fish'
+  },
+
+  // 文件上传
+  upload: {
+    dir: process.env.UPLOAD_DIR || 'uploads',
+    maxSize: parseInt(process.env.UPLOAD_MAX_SIZE, 10) || 5 * 1024 * 1024,
+    allowedTypes: (process.env.UPLOAD_ALLOWED_TYPES || 'image/jpeg,image/png,image/webp,image/gif').split(','),
+    urlPrefix: process.env.UPLOAD_URL_PREFIX || '/uploads'
+  },
+
+  // 限流
+  rateLimit: {
+    loginMax: parseInt(process.env.RATE_LIMIT_LOGIN_MAX, 10) || 5,
+    generalMax: parseInt(process.env.RATE_LIMIT_GENERAL_MAX, 10) || 100
+  },
+
+  // 管理员初始化
+  admin: {
+    username: process.env.ADMIN_USERNAME || 'admin',
+    password: process.env.ADMIN_PASSWORD || 'admin123'
+  },
+
+  // 跨域
+  cors: {
+    origin: process.env.CORS_ORIGIN || '*'
+  },
+
+  // AI服务
+  ai: {
+    url: process.env.AI_SERVICE_URL || 'http://localhost:8000'
+  }
+};
+
+// 关键配置校验:生产环境强制要求自定义密钥
+if (config.env === 'production') {
+  if (config.jwt.secret.includes('change_me')) {
+    console.error('[CONFIG] 生产环境必须修改 JWT_SECRET');
+    process.exit(1);
+  }
+}
+
+module.exports = config;

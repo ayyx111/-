@@ -1,0 +1,12 @@
+[phases.install]
+cmds = ["npm install --omit=dev"]
+
+[phases.build]
+cmds = ["echo 'No build step for backend'"]
+
+[start]
+cmd = "node src/app.js"
+
+[variables]
+NIXPACKS_BUILD_CACHE_DIRS = ""
+NODE_ENV = "production"

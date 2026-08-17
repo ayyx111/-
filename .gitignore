@@ -1,0 +1,33 @@
+# ============= 前端 (Vue + Vite) =============
+frontend/node_modules/
+frontend/dist/
+frontend/.iga/
+
+# ============= 后端 (Node.js + Express) =============
+backend/node_modules/
+backend/database.sqlite
+backend/database.sqlite-journal
+backend/uploads/
+backend/.env
+backend/.env.railway
+
+# ============= AI 服务 (Python + FastAPI) =============
+ai-service/__pycache__/
+ai-service/**/__pycache__/
+ai-service/venv/
+ai-service/.venv/
+ai-service/*.pyc
+ai-service/.env
+
+# ============= 系统 / 编辑 =============
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ============= 部署临时 =============
+*.tmp
+test_item.jpg
