@@ -139,8 +139,10 @@ export const http = {
   post: (url, data, config = {}) => request({ method: 'post', url, data, ...config }),
   put: (url, data, config = {}) => request({ method: 'put', url, data, ...config }),
   delete: (url, params, config = {}) => request({ method: 'delete', url, params, ...config }),
+  // 注意:不要手动写 Content-Type: multipart/form-data,
+  // axios+浏览器会在发送时自动生成并带上正确的 boundary 参数,否则 multer 无法解析 parts
   upload: (url, formData, config = {}) =>
-    request({ method: 'post', url, data: formData, headers: { 'Content-Type': 'multipart/form-data' }, ...config })
+    request({ method: 'post', url, data: formData, ...config })
 }
 
 export default service
