@@ -74,9 +74,20 @@ const config = {
     origin: process.env.CORS_ORIGIN || '*'
   },
 
-  // AI服务
+  // AI服务(Python 微服务,现已弃用——AI 能力已内联到 Node 后端,保留 url 仅作向后兼容)
   ai: {
     url: process.env.AI_SERVICE_URL || 'http://localhost:8000'
+  },
+
+  // LLM 大模型配置(智谱 GLM-4-Flash,OpenAI 兼容协议)
+  // API Key 作为默认值随仓库同步到 GitHub,使 Railway 服务器无需单独配置即可用 AI;
+  // 若设置了环境变量 LLM_API_KEY 则以环境变量为准(便于后续替换为独立 Key)。
+  llm: {
+    apiKey: process.env.LLM_API_KEY || '0b11234a132145ecb1ef8725a3d866cf.81P0lA6YJOtDAV9g',
+    baseUrl: process.env.LLM_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4',
+    model: process.env.LLM_MODEL || 'glm-4-flash',
+    temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.3'),
+    timeout: parseInt(process.env.LLM_TIMEOUT, 10) || 15000
   }
 };
 
