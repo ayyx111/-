@@ -51,7 +51,10 @@ const config = {
     dir: process.env.UPLOAD_DIR || 'uploads',
     maxSize: parseInt(process.env.UPLOAD_MAX_SIZE, 10) || 5 * 1024 * 1024,
     allowedTypes: (process.env.UPLOAD_ALLOWED_TYPES || 'image/jpeg,image/png,image/webp,image/gif').split(','),
-    urlPrefix: process.env.UPLOAD_URL_PREFIX || '/uploads'
+    urlPrefix: process.env.UPLOAD_URL_PREFIX || '/uploads',
+    // 公网访问基础URL（生产环境必填，如 https://你的项目.up.railway.app）
+    // 设置后返回的图片 URL 会带完整域名，方便 IGA Pages 等外部前端直接访问
+    publicBaseUrl: process.env.UPLOAD_PUBLIC_BASE_URL || ''
   },
 
   // 限流

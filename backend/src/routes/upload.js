@@ -5,8 +5,9 @@ const express = require('express');
 const router = express.Router();
 const uploadController = require('../controllers/uploadController');
 const { auth } = require('../middleware/auth');
-const { imageUpload } = require('../middleware/upload');
+const { imageUpload, imageUploadArray } = require('../middleware/upload');
 
 router.post('/upload/image', auth, imageUpload, uploadController.uploadImage);
+router.post('/upload/images', auth, imageUploadArray, uploadController.uploadImages);
 
 module.exports = router;

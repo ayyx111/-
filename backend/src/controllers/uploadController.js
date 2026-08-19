@@ -1,18 +1,9 @@
 /**
  * 文件上传控制器
  */
-const path = require('path');
 const config = require('../config');
 const ResponseUtil = require('../utils/response');
-
-/**
- * 将上传文件转换为可访问URL
- */
-function fileToUrl(req, file) {
-  const relativePath = path.relative(path.join(__dirname, '../../'), file.path).replace(/\\/g, '/');
-  // 拼接静态访问前缀:uploads/202608/xxx.jpg
-  return `/${relativePath}`;
-}
+const { resolveUploadUrl } = require('../utils/uploadUrl');
 
 /** 上传单张图片 */
 exports.uploadImage = async (req, res, next) => {
@@ -20,7 +11,7 @@ exports.uploadImage = async (req, res, next) => {
     if (!req.file) {
       return ResponseUtil.badRequest(res, '请选择要上传的图片');
     }
-    const url = fileToUrl(req, req.file);
+    const url = resolveUploadUrl(req.file);
     ResponseUtil.success(res, {
       url,
       filename: req.file.filename,
@@ -29,3 +20,19 @@ exports.uploadImage = async (req, res, next) => {
     }, '上传成功');
   } catch (err) { next(err); }
 };
+
+/** 上传多张图片（商品发布时直接使用） */
+exports.uploadImages = async (req, res, next) => {
+  try {
+    if (!req.files || req.files.length === 0) {
+      return ResponseUtil.badRequest(res, '请选择要上传的图片');
+    }
+    const urls = req.files.map(file => resolveUploadUrl(file));
+    ResponseUtil.success(res, {
+      urls,
+      count: urls.length
+    }, '上传成功');
+  } catch (err) { next(err); }
+};
+
+module.exports = exports;

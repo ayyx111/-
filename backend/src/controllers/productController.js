@@ -1,17 +1,10 @@
 /**
  * 商品控制器
  */
-const path = require('path');
 const productService = require('../services/productService');
 const ResponseUtil = require('../utils/response');
 const { ApiError } = require('../middleware/errorHandler');
-
-/**
- * 将上传文件转换为可访问URL(相对项目根)
- */
-function fileToUrl(filePath) {
-  return '/' + path.relative(path.join(__dirname, '../../'), filePath).replace(/\\/g, '/');
-}
+const { resolveUploadUrl } = require('../utils/uploadUrl');
 
 /** 商品列表 */
 exports.list = async (req, res, next) => {
@@ -37,7 +30,7 @@ exports.create = async (req, res, next) => {
     // 从上传的图片中提取URL
     let imageUrls = [];
     if (req.files && req.files.length > 0) {
-      imageUrls = req.files.map((f) => fileToUrl(f.path));
+      imageUrls = req.files.map((f) => resolveUploadUrl(f.path));
     } else if (req.body.images) {
       // 兼容直接传图片URL数组的情况
       imageUrls = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
@@ -53,7 +46,7 @@ exports.update = async (req, res, next) => {
     const userId = req.user.id;
     let imageUrls;
     if (req.files && req.files.length > 0) {
-      imageUrls = req.files.map((f) => fileToUrl(f.path));
+      imageUrls = req.files.map((f) => resolveUploadUrl(f.path));
     } else if (req.body.images) {
       imageUrls = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
     }
