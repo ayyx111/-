@@ -144,6 +144,15 @@ async function seedTestData() {
   const categoryBook = await Category.findByPk(1);
   const categoryElec = await Category.findByPk(2);
 
+  // 幂等:张三的测试商品已存在则跳过,避免每次后端重启都重复创建测试商品/订单/评价
+  const existingTestProduct = zhangsan
+    ? await Product.findOne({ where: { user_id: zhangsan.id, title: '高等数学第七版 - 几乎全新' } })
+    : null;
+  if (existingTestProduct) {
+    console.log('[Init] 测试数据已存在,跳过测试数据初始化(避免重复)');
+    return;
+  }
+
   if (zhangsan && categoryBook) {
     await Product.bulkCreate([
       { user_id: zhangsan.id, category_id: 1, title: '高等数学第七版 - 几乎全新', description: '上课用了一学期,笔记很少,书页完好。适合大一新生。', price: 25.00, original_price: 49.80, condition_level: 4, trade_type: 1, status: 1, view_count: 15, favorite_count: 3 },
