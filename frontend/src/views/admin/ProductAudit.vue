@@ -27,6 +27,7 @@ async function loadData() {
     pagination.value = res.pagination || pagination.value
   } catch (e) {
     list.value = []
+    ElMessage.error(e?.response?.data?.message || e?.message || '加载待审核列表失败')
   } finally {
     loading.value = false
   }
@@ -38,21 +39,27 @@ function changePage(p) {
 }
 
 async function handleReview(item, action) {
+  // 后端只接受 ['pass', 'reject']:'pass'=通过 'reject'=拒绝
+  const realAction = action === 'approve' ? 'pass' : action
   try {
     let reason = ''
-    if (action === 'reject') {
+    if (realAction === 'reject') {
       const { value } = await ElMessageBox.prompt('请输入拒绝原因', '拒绝审核', {
         confirmButtonText: '确认',
         cancelButtonText: '取消'
       })
-      reason = value
+      reason = value || ''
     } else {
       await ElMessageBox.confirm('确认通过该商品审核?', '提示', { type: 'info' })
     }
-    await adminApi.reviewProduct(item.id, { action, reason })
-    ElMessage.success(action === 'approve' ? '已通过' : '已拒绝')
+    await adminApi.reviewProduct(item.id, { action: realAction, reason })
+    ElMessage.success(realAction === 'pass' ? '已通过审核,商品已上架' : '已拒绝审核')
     loadData()
-  } catch (e) {}
+  } catch (e) {
+    if (e === 'cancel' || e === undefined || e === null) return // 用户点取消不提示
+    const msg = e?.response?.data?.message || e?.message
+    if (msg) ElMessage.error(msg)
+  }
 }
 
 // 重新触发 AI 审核
@@ -60,9 +67,12 @@ async function handleAiReReview(item) {
   try {
     await ElMessageBox.confirm(`确认对商品「${item.title}」重新进行 AI 审核?`, 'AI 重审', { type: 'info' })
     const res = await adminApi.reReviewByAi(item.id)
-    ElMessage.success(res.message || 'AI 重审完成')
+    ElMessage.success(res?.message || 'AI 重审完成')
     loadData()
-  } catch (e) {}
+  } catch (e) {
+    if (e === 'cancel' || e === undefined || e === null) return
+    ElMessage.error(e?.response?.data?.message || e?.message || 'AI 重审失败')
+  }
 }
 
 onMounted(loadData)

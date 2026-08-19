@@ -1,7 +1,7 @@
 /**
  * 管理后台控制器(需 role=1)
  */
-const { Op, fn, col } = require('sequelize');
+const { Op, fn, col, literal } = require('sequelize');
 const {
   User, Product, Report, AdminLog, Order, Category,
   ProductImage, Review
@@ -193,14 +193,36 @@ exports.handleReport = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-/** 数据统计 */
+/** 计算今日 00:00:00 以后的增量计数;列不存在或 SQL 报错则 fallback 0 */
+async function countToday(Model, dateCol, extraWhere) {
+  try {
+    const start = new Date();
+    start.setHours(0, 0, 0, 0);
+    const where = { [dateCol]: { [Op.gte]: start } };
+    if (extraWhere) Object.assign(where, extraWhere);
+    return await Model.count({ where });
+  } catch (e) {
+    console.warn(`[admin/stats] 今日增量查 ${Model.name}.${dateCol} 失败(列可能不存在): ${e.message}`);
+    return 0;
+  }
+}
+
+/** 数据统计
+ *  返回字段兼容两套命名:
+ *   - 后端原有: users/products/onSale/pendingReview/orders/completed/reports/pendingReports/categories/categoryStats
+ *   - 前端 Overview.vue 期待: userCount/productCount/orderCount/pendingReviews/pendingReports/todayNewUsers/todayNewProducts
+ *   - 前端 Statistics.vue category: 返回 categories 列表(含{name,count})与趋势列表(近14天{date, users, products, orders})
+ */
 exports.stats = async (req, res, next) => {
   try {
+    const type = req.query.type || 'overview'; // overview | category | trend
+
     const [
       userCount,
       productCount,
       onSaleCount,
       pendingReviewCount,
+      rejectedCount,
       orderCount,
       completedCount,
       reportCount,
@@ -211,6 +233,7 @@ exports.stats = async (req, res, next) => {
       Product.count(),
       Product.count({ where: { status: productService.PRODUCT_STATUS.ON_SALE } }),
       Product.count({ where: { status: productService.PRODUCT_STATUS.PENDING } }),
+      Product.count({ where: { status: productService.PRODUCT_STATUS.REJECTED } }),
       Order.count(),
       Order.count({ where: { status: 3 } }),
       Report.count(),
@@ -218,25 +241,96 @@ exports.stats = async (req, res, next) => {
       Category.count()
     ]);
 
-    // 各分类商品数
-    const categoryStats = await Product.findAll({
-      attributes: ['category_id', [fn('COUNT', col('id')), 'count']],
-      where: { status: productService.PRODUCT_STATUS.ON_SALE },
-      group: ['category_id'],
-      raw: true
-    });
+    // 今日新增(如果表没有 created_at 列, fallback 0)
+    const [todayNewUsers, todayNewProducts] = await Promise.all([
+      countToday(User, 'created_at'),
+      countToday(Product, 'created_at')
+    ]);
 
-    ResponseUtil.success(res, {
+    const base = {
+      // 后端原有命名
       users: userCount,
       products: productCount,
       onSale: onSaleCount,
       pendingReview: pendingReviewCount,
+      rejected: rejectedCount,
       orders: orderCount,
       completed: completedCount,
       reports: reportCount,
       pendingReports: pendingReportCount,
       categories: categoryCount,
-      categoryStats
+      // Overview.vue 期待命名(必须完全对齐)
+      userCount,
+      productCount,
+      orderCount,
+      pendingReviews: pendingReviewCount,
+      todayNewUsers,
+      todayNewProducts,
+      // Statistics.vue 条形图字段
+      categoryStats: []
+    };
+
+    // 各分类商品数(条形图 + trend 共用)
+    const catRows = await Product.findAll({
+      attributes: ['category_id', [fn('COUNT', literal('1')), 'count']],
+      where: { status: productService.PRODUCT_STATUS.ON_SALE },
+      group: ['category_id'],
+      raw: true
     });
+    // 关联查分类名
+    const allCats = await Category.findAll({ raw: true });
+    const catNameMap = {};
+    allCats.forEach((c) => (catNameMap[c.id] = c.name));
+    base.categoryStats = catRows.map((r) => ({
+      categoryId: r.category_id,
+      name: catNameMap[r.category_id] || `#${r.category_id}`,
+      count: Number(r.count || 0),
+    }));
+
+    // 按 type 差异化返回
+    if (type === 'category') {
+      return ResponseUtil.success(res, {
+        ...base,
+        categories: base.categoryStats, // Statistics.vue category: read from "categories" list
+        list: base.categoryStats
+      });
+    }
+
+    if (type === 'trend') {
+      // 近 14 天按日期 group: users/products/orders 增量
+      const labels = [];
+      const rows = [];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date(today.getTime() - i * 86400000);
+        const next = new Date(d.getTime() + 86400000);
+        labels.push(`${d.getMonth() + 1}/${d.getDate()}`);
+        const [us, ps, os] = await Promise.all([
+          countBetween(User, 'created_at', d, next),
+          countBetween(Product, 'created_at', d, next),
+          countBetween(Order, 'created_at', d, next),
+        ]);
+        rows.push({ date: `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`, users: us, products: ps, orders: os });
+      }
+      return ResponseUtil.success(res, {
+        ...base,
+        labels,
+        list: rows,
+        trend: rows,
+      });
+    }
+
+    // overview(默认)
+    ResponseUtil.success(res, base);
   } catch (err) { next(err); }
 };
+
+/** [start,end) 范围内计数,列不存在 fallback 0 */
+async function countBetween(Model, dateCol, start, end) {
+  try {
+    return await Model.count({
+      where: { [dateCol]: { [Op.gte]: start, [Op.lt]: end } }
+    });
+  } catch (e) { return 0; }
+}
