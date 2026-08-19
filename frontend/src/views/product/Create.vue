@@ -58,21 +58,33 @@ const conditionOptions = Object.entries(CONDITION_MAP).map(([k, v]) => ({
 
 // 图片上传
 const uploadRef = ref()
-const fileList = ref([]) // el-upload 文件列表
-const uploadAction = '/api/v1/upload/image'
+const fileList = ref([]) // el-upload 文件列表(受控),每一项带 url/status/name
 
-// 上传成功
-function handleUploadSuccess(response, file) {
-  if (response.code === 200) {
-    form.images.push(response.data.url)
-  } else {
-    ElMessage.error(response.message || '上传失败')
+// 自定义上传:经 axios 封装携带 VITE_API_BASE_URL + token + 统一响应解包
+// - 后端 multer 监听字段名 `file`(imageUpload = upload.single('file'))
+async function customUpload({ file, onSuccess, onError }) {
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const data = await productApi.uploadImage(formData)
+    // data = { url, filename, size, mimetype } (拦截器已 return res.data)
+    const url = data?.url
+    if (!url) throw new Error('上传响应缺少 url')
+    // 写入正式集合
+    form.images.push(url)
+    // 同步到 fileList,让 UI 显示缩略图/移除按钮
+    fileList.value = fileList.value.map((item) =>
+      item.uid === file.uid
+        ? { ...item, url: resolveImageUrl(url), status: 'success' }
+        : item
+    )
+    onSuccess?.(data)
+  } catch (e) {
+    // 失败的条目剔除
+    fileList.value = fileList.value.filter((item) => item.uid !== file?.uid)
+    onError?.(e)
+    ElMessage.error(e?.message || '图片上传失败')
   }
-}
-
-// 上传失败
-function handleUploadError() {
-  ElMessage.error('图片上传失败')
 }
 
 // 上传前校验
@@ -90,6 +102,11 @@ function beforeUpload(file) {
   return true
 }
 
+// 选文件后先把临时条目推入 fileList(等 customUpload 成功再补 url)
+function handleFileChange(file, list) {
+  fileList.value = list
+}
+
 // 超出数量限制
 function handleExceed() {
   ElMessage.warning('最多上传9张图片')
@@ -98,14 +115,12 @@ function handleExceed() {
 // 移除图片
 function handleRemove(file) {
   const url = file.response?.data?.url || file.url
-  form.images = form.images.filter((u) => u !== url)
-}
-
-// 上传请求头(token)
-function uploadHeaders() {
-  return {
-    Authorization: `Bearer ${localStorage.getItem('token')}`
+  if (url) {
+    form.images = form.images.filter((u) =>
+      u === url ? false : resolveImageUrl(u) !== resolveImageUrl(url)
+    )
   }
+  fileList.value = fileList.value.filter((item) => item.uid !== file.uid)
 }
 
 // 加载编辑数据
@@ -174,14 +189,14 @@ async function handleSubmit() {
       }
 
       // 解析 AI 审核结果并展示
-      const product = res.data || res
-      const aiKey = aiResultKey(product.aiReviewResult)
+      const product = res?.data || res
+      const aiKey = aiResultKey(product.aiReviewResult ?? product.ai_review_result)
       const meta = AI_REVIEW_MAP[aiKey]
       aiReview.value = {
         key: aiKey,
         label: meta.label,
         statusText: meta.statusText,
-        reason: product.aiReviewReason || '',
+        reason: product.aiReviewReason || product.ai_review_reason || '',
         type: meta.type
       }
       ElMessage({
@@ -228,17 +243,16 @@ onMounted(async () => {
             <el-upload
               ref="uploadRef"
               v-model:file-list="fileList"
-              :action="uploadAction"
-              :headers="uploadHeaders()"
+              :http-request="customUpload"
               list-type="picture-card"
               :limit="9"
               :before-upload="beforeUpload"
-              :on-success="handleUploadSuccess"
-              :on-error="handleUploadError"
+              :on-change="handleFileChange"
               :on-exceed="handleExceed"
               :on-remove="handleRemove"
               accept="image/jpeg,image/png,image/webp"
               multiple
+              :auto-upload="true"
             >
               <el-icon><Plus /></el-icon>
               <template #tip>
