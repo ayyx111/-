@@ -8,7 +8,7 @@ import { resolveImageUrl } from '@/utils/format'
 
 const router = useRouter()
 const userStore = useUserStore()
-const { userInfo, isVerified } = storeToRefs(userStore)
+const { userInfo, isVerified, verifyStatus } = storeToRefs(userStore)
 
 // 功能菜单
 const menus = [
@@ -47,9 +47,11 @@ function go(path) {
         <div class="user-meta">
           <div class="username">
             {{ userInfo?.nickname || userInfo?.username || '用户' }}
-            <el-tag v-if="isVerified" type="success" size="small" round>
+            <el-tag v-if="verifyStatus === 1" type="success" size="small" round>
               <el-icon><CircleCheck /></el-icon>已认证
             </el-tag>
+            <el-tag v-else-if="verifyStatus === 2" type="primary" size="small" round>审核中</el-tag>
+            <el-tag v-else-if="verifyStatus === 3" type="danger" size="small" round>认证未通过</el-tag>
             <el-tag v-else type="warning" size="small" round>未认证</el-tag>
           </div>
           <div class="user-school">

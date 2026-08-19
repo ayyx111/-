@@ -66,8 +66,26 @@ export const useUserStore = defineStore('user', () => {
   const isLogin = computed(() => !!token.value)
   // 是否管理员
   const isAdmin = computed(() => userInfo.value?.role === 1)
-  // 是否已校园认证
-  const isVerified = computed(() => userInfo.value?.isVerified === 1)
+  // 认证状态(0未认证 1已通过 2待审核 3未通过)
+  // - 1或2都认为"已提交认证/可发布商品",避免待审核阶段无法使用功能
+  const verifyStatus = computed(() =>
+    userInfo.value?.is_verified ?? userInfo.value?.isVerified ?? 0
+  )
+  const isVerified = computed(() =>
+    verifyStatus.value === 1 || verifyStatus.value === 2
+  )
+  const verifyStatusText = computed(() => {
+    switch (verifyStatus.value) {
+      case 1:
+        return '已通过校园认证'
+      case 2:
+        return '认证审核中,请耐心等待'
+      case 3:
+        return '认证未通过,请重新提交'
+      default:
+        return ''
+    }
+  })
 
   /**
    * 登录
@@ -154,7 +172,9 @@ export const useUserStore = defineStore('user', () => {
     unreadCount,
     isLogin,
     isAdmin,
+    verifyStatus,
     isVerified,
+    verifyStatusText,
     login,
     getUserInfo,
     logout,

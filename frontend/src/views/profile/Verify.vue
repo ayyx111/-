@@ -1,5 +1,5 @@
 <script setup>
-// 校园认证页:上传学生证 + 学校/学院/入学年份
+// 校园认证页:填写学校/学院/入学年份即可提交,学生证照片可选
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { storeToRefs } from 'pinia'
@@ -7,17 +7,21 @@ import authApi from '@/api/auth'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
-const { userInfo, isVerified } = storeToRefs(userStore)
+const { userInfo, verifyStatus, verifyStatusText } = storeToRefs(userStore)
 
 const formRef = ref()
 const loading = ref(false)
 const fileList = ref([])
 
+// 0=未认证 1=已通过 2=待审核 3=未通过
+const showForm = computed(() => verifyStatus.value === 0 || verifyStatus.value === 3)
+const showResult = computed(() => verifyStatus.value === 1)
+const showPending = computed(() => verifyStatus.value === 2)
+
 const form = reactive({
   school: '',
   college: '',
-  enrollmentYear: new Date().getFullYear(),
-  studentCardImage: null
+  enrollmentYear: new Date().getFullYear()
 })
 
 const rules = {
@@ -34,11 +38,12 @@ const yearOptions = computed(() => {
 })
 
 function handleFileChange(file) {
-  form.studentCardImage = file.raw
+  // 可选字段,仅保留 UI 预览
+  return file
 }
 
 function handleRemove() {
-  form.studentCardImage = null
+  // 可选字段
 }
 
 function beforeUpload(file) {
@@ -81,7 +86,7 @@ function prefill() {
   if (userInfo.value) {
     form.school = userInfo.value.school || ''
     form.college = userInfo.value.college || ''
-    form.enrollmentYear = userInfo.value.enrollmentYear || new Date().getFullYear()
+    form.enrollmentYear = userInfo.value.enrollmentYear || userInfo.value.enrollment_year || new Date().getFullYear()
   }
 }
 onMounted(prefill)
@@ -95,7 +100,7 @@ onMounted(prefill)
 
         <!-- 已认证 -->
         <el-result
-          v-if="isVerified"
+          v-if="showResult"
           icon="success"
           title="已完成校园认证"
           sub-title="您已通过校园身份认证,可以发布商品和交易"
@@ -104,12 +109,29 @@ onMounted(prefill)
             <div class="verified-info">
               <p>学校:{{ userInfo?.school }}</p>
               <p>学院:{{ userInfo?.college }}</p>
-              <p>入学年份:{{ userInfo?.enrollmentYear }}</p>
+              <p>入学年份:{{ userInfo?.enrollmentYear || userInfo?.enrollment_year }}</p>
             </div>
           </template>
         </el-result>
 
-        <!-- 未认证:表单 -->
+        <!-- 待审核 -->
+        <el-result
+          v-else-if="showPending"
+          icon="info"
+          title="认证审核中"
+          :sub-title="verifyStatusText"
+        >
+          <template #extra>
+            <div class="verified-info">
+              <p>学校:{{ userInfo?.school }}</p>
+              <p>学院:{{ userInfo?.college }}</p>
+              <p>入学年份:{{ userInfo?.enrollmentYear || userInfo?.enrollment_year }}</p>
+              <p class="tip">审核期间您仍可正常发布商品和交易,完成后会收到通知</p>
+            </div>
+          </template>
+        </el-result>
+
+        <!-- 未通过 / 未认证:表单 -->
         <el-form
           v-else
           ref="formRef"
@@ -119,6 +141,15 @@ onMounted(prefill)
           size="large"
         >
           <el-alert
+            v-if="verifyStatus === 3"
+            title="上次认证未通过,请根据审核意见修改后重新提交"
+            type="warning"
+            show-icon
+            :closable="false"
+            class="tips"
+          />
+          <el-alert
+            v-else
             title="校园认证后才能发布商品和交易,请如实填写信息"
             type="info"
             show-icon
@@ -191,6 +222,10 @@ onMounted(prefill)
   color: var(--text-regular);
   p {
     margin: 6px 0;
+  }
+  .tip {
+    margin-top: 12px;
+    color: var(--el-color-primary);
   }
 }
 </style>

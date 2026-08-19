@@ -25,18 +25,26 @@ function sanitizeUser(user) {
     email: v.email,
     phone: v.phone,
     student_id: v.student_id,
+    studentId: v.student_id,
     avatar: v.avatar,
     nickname: v.nickname,
     bio: v.bio,
     school: v.school,
     college: v.college,
     enrollment_year: v.enrollment_year,
+    enrollmentYear: v.enrollment_year,
+    campus_proof: v.campus_proof,
+    campusProof: v.campus_proof,
     role: v.role,
     is_verified: v.is_verified,
+    isVerified: v.is_verified,
     credit_score: v.credit_score,
+    creditScore: v.credit_score,
     status: v.status,
     last_login_at: v.last_login_at,
-    created_at: v.created_at
+    lastLoginAt: v.last_login_at,
+    created_at: v.created_at,
+    createdAt: v.created_at
   };
 }
 
