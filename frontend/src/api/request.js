@@ -14,12 +14,13 @@ const baseURL = envBase && envBase.trim()
   : (isLocalDev ? '/api/v1' : FALLBACK_RAILWAY_URL)
 
 // 创建 Axios 实例
+// 注意:不要在此设置默认 Content-Type: application/json——
+// 否则上传 FormData 时 axios 不会自动切换为 multipart/form-data(带 boundary),
+// 后端 multer 解析不到文件字段,会返回"请选择要上传的图片"。
+// 不设默认头时:axios 对普通对象自动用 application/json,对 FormData 自动用 multipart/form-data。
 const service = axios.create({
   baseURL,
-  timeout: 60000,
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  timeout: 60000
 })
 
 // 是否正在刷新 Token,避免重复弹窗
