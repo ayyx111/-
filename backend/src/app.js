@@ -168,6 +168,71 @@ async function seedTestData() {
 }
 
 /**
+ * Sequelize.sync({ force: false }) 不会修改已有列
+ * 此函数扫描所有模型,将数据库中缺失的列用 ALTER TABLE 补上
+ * 仅在生产环境 / PostgreSQL 中启用
+ */
+async function ensureSchemaColumns() {
+  const queryInterface = sequelize.getQueryInterface();
+  const dialect = sequelize.getDialect();
+  const models = sequelize.models;
+  const colMap = {
+    BIGINT: 'BIGINT',
+    INTEGER: 'INTEGER',
+    SMALLINT: 'SMALLINT',
+    STRING: (attr) => `VARCHAR(${attr.type._length || 255})`,
+    TEXT: 'TEXT',
+    DECIMAL: (attr) => {
+      const p = attr.type._precision || 10;
+      const s = attr.type._scale ?? 2;
+      return `DECIMAL(${p},${s})`;
+    },
+    DATE: 'TIMESTAMP',
+    BOOLEAN: dialect === 'postgres' ? 'BOOLEAN' : 'TINYINT(1)'
+  };
+
+  for (const [name, Model] of Object.entries(models)) {
+    const table = Model.tableName;
+    const attrs = Model.rawAttributes;
+    let existing = [];
+    try {
+      const [rows] = await sequelize.query(
+        dialect === 'postgres'
+          ? `SELECT column_name FROM information_schema.columns WHERE table_name = '${table}'`
+          : `SHOW COLUMNS FROM \`${table}\``
+      );
+      existing = rows.map((r) => (dialect === 'postgres' ? r.column_name : r.Field));
+    } catch (_) {
+      // 表不存在,交给 sync 创建
+      continue;
+    }
+    let added = 0;
+    for (const [attrName, attr] of Object.entries(attrs)) {
+      if (existing.includes(attr.field || attrName)) continue;
+      if (attrName === 'createdAt' || attrName === 'updatedAt' || attr.field === 'created_at' || attr.field === 'updated_at') continue;
+      const typeKey = attr.type.key;
+      const typeFn = colMap[typeKey];
+      const colType = typeof typeFn === 'function' ? typeFn(attr) : typeFn;
+      if (!colType) continue;
+      let colDefault = '';
+      if (attr.defaultValue !== undefined && attr.defaultValue !== null) {
+        if (typeof attr.defaultValue === 'number') colDefault = ` DEFAULT ${attr.defaultValue}`;
+        else if (typeof attr.defaultValue === 'string') colDefault = ` DEFAULT '${attr.defaultValue.replace(/'/g, "''")}'`;
+      }
+      const colNull = attr.allowNull === false ? ' NOT NULL' : '';
+      const colName = attr.field || attrName;
+      try {
+        await sequelize.query(`ALTER TABLE "${table}" ADD COLUMN "${colName}" ${colType}${colNull}${colDefault}`);
+        added++;
+      } catch (e) {
+        console.log(`[DB] 列 ${table}.${colName} 已存在或跳过: ${e.message}`);
+      }
+    }
+    if (added > 0) console.log(`[DB] 补全 ${table} 表 ${added} 个缺失列`);
+  }
+}
+
+/**
  * 启动服务
  */
 async function start() {
@@ -182,6 +247,11 @@ async function start() {
       console.log(`[DB] 开始同步表结构(force=${force})...`);
       await sequelize.sync({ force });
       console.log('[DB] 表结构同步完成');
+    }
+
+    // 补全模型中存在、但数据库中缺失的列(兼容旧数据库)
+    if (config.env === 'production') {
+      await ensureSchemaColumns();
     }
 
     // 写入初始数据
