@@ -72,6 +72,12 @@ const User = sequelize.define('users', {
     field: 'enrollment_year',
     comment: '入学年份'
   },
+  campus_proof: {
+    type: DataTypes.STRING(255),
+    allowNull: true,
+    field: 'campus_proof',
+    comment: '学生证照片URL'
+  },
   role: {
     type: DataTypes.SMALLINT,
     allowNull: false,

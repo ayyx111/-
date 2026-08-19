@@ -58,18 +58,14 @@ function beforeUpload(file) {
 async function handleSubmit() {
   await formRef.value.validate(async (valid) => {
     if (!valid) return
-    if (!form.studentCardImage) {
-      ElMessage.warning('请上传学生证照片')
-      return
-    }
     loading.value = true
     try {
-      const formData = new FormData()
-      formData.append('studentCardImage', form.studentCardImage)
-      formData.append('school', form.school)
-      formData.append('college', form.college)
-      formData.append('enrollmentYear', form.enrollmentYear)
-      await authApi.verifyCampus(formData)
+      const payload = {
+        school: form.school,
+        college: form.college,
+        enrollmentYear: form.enrollmentYear
+      }
+      await authApi.verifyCampus(payload)
       ElMessage.success('认证已提交,等待审核')
       await userStore.getUserInfo()
     } catch (e) {
@@ -144,7 +140,7 @@ onMounted(prefill)
             </el-select>
           </el-form-item>
 
-          <el-form-item label="学生证照片" required>
+          <el-form-item label="学生证照片">
             <el-upload
               v-model:file-list="fileList"
               :auto-upload="false"
@@ -157,7 +153,7 @@ onMounted(prefill)
             >
               <el-icon><Plus /></el-icon>
               <template #tip>
-                <div class="upload-tip">上传清晰的学生证照片,jpg/png/webp,不超过5MB</div>
+                <div class="upload-tip">可选:上传清晰的学生证照片,可加快审核,jpg/png/webp,不超过5MB</div>
               </template>
             </el-upload>
           </el-form-item>

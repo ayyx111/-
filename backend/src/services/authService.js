@@ -195,10 +195,9 @@ async function resetPassword({ account, code, newPassword }) {
 }
 
 /**
- * 校园认证(提交学生证图片,进入待审核状态)
+ * 校园认证(填写学校/学院/入学年份即可,学生证照片可选)
  */
 async function verifyCampus(userId, { studentIdImage, school, college, enrollmentYear, studentId }) {
-  if (!studentIdImage) throw new ApiError('请上传学生证照片', 400);
   const user = await User.findByPk(userId);
   if (!user) throw new ApiError('用户不存在', 404);
   if (user.is_verified === 1) throw new ApiError('您已通过校园认证', 400);

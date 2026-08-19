@@ -21,7 +21,7 @@ export const authApi = {
   resetPassword: (data) => http.post('/auth/reset-password', data),
 
   // 校园身份认证
-  verifyCampus: (formData) => http.upload('/auth/verify-campus', formData)
+  verifyCampus: (data) => http.post('/auth/verify-campus', data)
 }
 
 export default authApi
