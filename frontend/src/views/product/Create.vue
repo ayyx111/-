@@ -83,7 +83,11 @@ async function customUpload({ file, onSuccess, onError }) {
     // 失败的条目剔除
     fileList.value = fileList.value.filter((item) => item.uid !== file?.uid)
     onError?.(e)
-    ElMessage.error(e?.message || '图片上传失败')
+    // HTTP 错误已经由 axios 拦截器弹过 ElMessage,避免重复弹窗
+    const isHttpError = !!e?.response || (e?.message && /status code \d+/.test(e.message) || e?.message === '请求的资源不存在' || e?.message?.startsWith('请求') || e?.message?.startsWith('服务器') || e?.message?.startsWith('无权限') || e?.message?.startsWith('登录') || e?.message?.startsWith('网络'))
+    if (!isHttpError) {
+      ElMessage.error(e?.message || '图片上传失败')
+    }
   }
 }
 

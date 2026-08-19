@@ -3,7 +3,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import router from '@/router'
 
 // 从环境变量读取后端基础路径
-const baseURL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
+// - 有 VITE_API_BASE_URL 时直接用
+// - 否则兜底到 Railway 公网地址(IGA Pages 静态托管下,不能靠相对路径代理到本地后端)
+// - 开发环境(http://localhost:5173)时仍然走 Vite 代理(/api/v1 -> localhost:3000)
+const isLocalDev = typeof location !== 'undefined' && location.hostname === 'localhost'
+const FALLBACK_RAILWAY_URL = 'https://resplendent-caring-production-ebd2.up.railway.app/api/v1'
+const envBase = import.meta.env.VITE_API_BASE_URL
+const baseURL = envBase && envBase.trim()
+  ? envBase
+  : (isLocalDev ? '/api/v1' : FALLBACK_RAILWAY_URL)
 
 // 创建 Axios 实例
 const service = axios.create({
