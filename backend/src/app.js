@@ -20,6 +20,7 @@ const config = require('./config');
 const routes = require('./routes');
 const { notFound, errorHandler } = require('./middleware/errorHandler');
 const { setupChat } = require('./sockets/chatHandler');
+const { setIo } = require('./sockets/wsHelper');
 const ResponseUtil = require('./utils/response');
 
 const app = express();
@@ -36,6 +37,7 @@ const io = new Server(server, {
 });
 setupChat(io);
 app.set('io', io);
+setIo(io);
 
 // ============ 基础中间件 ============
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' }, contentSecurityPolicy: false }));

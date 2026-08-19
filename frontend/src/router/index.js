@@ -65,6 +65,12 @@ const routes = [
         meta: { title: '消息', requiresAuth: true }
       },
       {
+        path: 'messages/:userId',
+        name: 'MessagesWith',
+        component: () => import('@/views/message/Index.vue'),
+        meta: { title: '聊天', requiresAuth: true }
+      },
+      {
         path: 'profile',
         name: 'Profile',
         component: () => import('@/views/profile/Index.vue'),
@@ -138,6 +144,12 @@ const routes = [
         name: 'AdminUsers',
         component: () => import('@/views/admin/Users.vue'),
         meta: { title: '用户管理' }
+      },
+      {
+        path: 'verify',
+        name: 'AdminVerify',
+        component: () => import('@/views/admin/Verify.vue'),
+        meta: { title: '校园认证审核' }
       },
       {
         path: 'reports',

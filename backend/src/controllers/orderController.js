@@ -11,7 +11,15 @@ exports.create = async (req, res, next) => {
   try {
     const { productId, remark } = req.body;
     const order = await orderService.createOrder(req.user.id, { productId, remark });
-    ResponseUtil.created(res, order, '下单成功');
+    // OrderDetail 路由:router.push({name:'OrderDetail', params:{id:res.orderId}})
+    // 需要返回 id(orderId) + 兼容字段,避免前端跳 /orders/undefined → 404 "资源不存在"
+    ResponseUtil.created(res, {
+      id: order.id,
+      orderId: order.id,
+      orderNo: order.order_no || order.orderNo,
+      status: order.status,
+      order,
+    }, '下单成功');
   } catch (err) { next(err); }
 };
 

@@ -15,6 +15,14 @@ const userStore = useUserStore()
 
 const { conversations, currentUserId, messages, onlineUsers } = storeToRefs(messageStore)
 
+// 移动端点会话时切到全屏聊天;PC端永远左右并排显示,不被 hidden 影响。
+// window.innerWidth 不在响应式依赖收集内,所以用一个 ref 监听 resize 更新。
+const clientWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1920)
+const isMobile = computed(() => clientWidth.value <= 768)
+function _onResize() { clientWidth.value = typeof window !== 'undefined' ? window.innerWidth : 1920 }
+onMounted(() => { if (typeof window !== 'undefined') window.addEventListener('resize', _onResize) })
+onBeforeUnmount(() => { if (typeof window !== 'undefined') window.removeEventListener('resize', _onResize) })
+
 const inputMessage = ref('')
 const chatBodyRef = ref()
 const loadingHistory = ref(false)
@@ -80,23 +88,44 @@ onMounted(async () => {
   // 加载会话列表
   await messageStore.fetchConversations()
 
-  // 如果 URL 带 to 参数,自动选中会话
-  if (route.query.to) {
-    const toId = Number(route.query.to)
-    // 若会话列表中没有,新建占位
-    if (!conversations.value.find((c) => c.userId === toId)) {
+  // 自动选中:优先 params.userId (顶栏通知点进来的 /messages/:userId);
+  // 再兜底老的 ?to=xxx query 形式。
+  const urlTarget = Number(route.params.userId || route.query.to || 0)
+  if (urlTarget > 0) {
+    if (!conversations.value.find((c) => c.userId === urlTarget)) {
       conversations.value.unshift({
-        userId: toId,
-        nickname: '用户' + toId,
+        userId: urlTarget,
+        nickname: '用户' + urlTarget,
         avatar: '',
         lastMessage: '',
         lastMessageTime: new Date().toISOString(),
         unreadCount: 0
       })
     }
-    selectConversation(toId)
+    selectConversation(urlTarget)
   }
 })
+
+// 路由 params.userId 变化时自动切会话 (通知点击回来 /messages/:userId 用)
+watch(
+  () => [route.params.userId, route.query.to],
+  () => {
+    const urlTarget = Number(route.params.userId || route.query.to || 0)
+    if (urlTarget > 0) {
+      if (!conversations.value.find((c) => c.userId === urlTarget)) {
+        conversations.value.unshift({
+          userId: urlTarget,
+          nickname: '用户' + urlTarget,
+          avatar: '',
+          lastMessage: '',
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0
+        })
+      }
+      selectConversation(urlTarget)
+    }
+  }
+)
 
 onBeforeUnmount(() => {
   messageStore.setCurrentUser(null)
@@ -137,7 +166,14 @@ onBeforeUnmount(() => {
       </aside>
 
       <!-- 右侧聊天窗口 -->
-      <section class="chat-window" :class="{ hidden: !mobileShowChat && currentUserId }">
+      <!-- hidden 类仅移动端生效(见 scss hidden-pc):PC 端左右两栏永远并排;
+           移动端逻辑:点开会话 → mobileShowChat=true → 左侧 hidden 右侧显示;点返回 → mobileShowChat=false → 左侧恢复。
+           老写法 `:class="{ hidden: !mobileShowChat && currentUserId }"` 会让 PC 端「选了会话后聊天窗被隐藏」,
+           导致点左侧会话→右侧空白→再点另一个闪,这就是页面"老是闪"的核心 Bug。 -->
+      <section
+        class="chat-window"
+        :class="{ hidden: isMobile.value && !mobileShowChat && currentUserId }"
+      >
         <template v-if="currentUserId">
           <!-- 聊天头部 -->
           <div class="chat-header">

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import router from '@/router'
+import { useUserStore } from '@/stores/user'
 
 // 从环境变量读取后端基础路径
 // - 有 VITE_API_BASE_URL 时直接用
@@ -14,13 +15,14 @@ const baseURL = envBase && envBase.trim()
   : (isLocalDev ? '/api/v1' : FALLBACK_RAILWAY_URL)
 
 // 创建 Axios 实例
-// 注意:不要在此设置默认 Content-Type: application/json——
-// 否则上传 FormData 时 axios 不会自动切换为 multipart/form-data(带 boundary),
-// 后端 multer 解析不到文件字段,会返回"请选择要上传的图片"。
-// 不设默认头时:axios 对普通对象自动用 application/json,对 FormData 自动用 multipart/form-data。
+// 注意:不要在实例级强制 `Content-Type: application/json`——
+// 当请求体是 FormData(上传文件等)时,axios 会自动设置 multipart/form-data(带 boundary),
+// 如果这里硬塞了 Content-Type,浏览器会优先用手动头,导致后端 multer 解析不到文件字段,
+// 前端发布页上传图片会报"请选择要上传的图片"。
+// 对于普通 POST 对象,axios 会自动根据 data 类型添加 application/json。
 const service = axios.create({
   baseURL,
-  timeout: 60000
+  timeout: 60000,
 })
 
 // 是否正在刷新 Token,避免重复弹窗
@@ -102,27 +104,35 @@ service.interceptors.response.use(
 )
 
 // 处理 401 未授权:清除登录态并跳转登录页
+// 全局节流:多个接口同时 401 时,只弹一次 MessageBox + 一次 router.push,
+// 避免连弹多个弹窗、多次跳 Login 导致的"页面反复闪"。
+let unauthorizedHandledTs = 0
 function handleUnauthorized() {
-  if (isRefreshing) return
+  const now = Date.now()
+  if (isRefreshing || (now - unauthorizedHandledTs) < 1500) return
   isRefreshing = true
+  unauthorizedHandledTs = now
   localStorage.removeItem('token')
   localStorage.removeItem('userInfo')
   const currentPath = router.currentRoute.value.fullPath
-  if (router.currentRoute.value.name !== 'Login') {
-    ElMessageBox.confirm('登录状态已过期,请重新登录', '提示', {
-      confirmButtonText: '重新登录',
-      cancelButtonText: '取消',
-      type: 'warning'
-    })
-      .then(() => {
-        router.push({ name: 'Login', query: { redirect: currentPath } })
-      })
-      .finally(() => {
-        isRefreshing = false
-      })
-  } else {
-    isRefreshing = false
+  // 已在 Login 页不弹
+  if (router.currentRoute.value.name === 'Login') {
+    setTimeout(() => { isRefreshing = false }, 1200)
+    return
   }
+  // 先清登录态、再直接跳 Login(不再阻塞式弹窗,避免多弹窗闪烁)
+  try {
+    // ESM:调用 store 时必须已安装 pinia(App.vue setup执行后已ok);这里兜底 try/catch
+    const userStore = useUserStore()
+    if (userStore && typeof userStore.resetState === 'function') userStore.resetState()
+  } catch (_) {}
+  router.replace({ name: 'Login', query: { redirect: currentPath } })
+    .then(() => {
+      setTimeout(() => { isRefreshing = false }, 1200)
+    })
+    .catch(() => {
+      setTimeout(() => { isRefreshing = false }, 1200)
+    })
 }
 
 /**

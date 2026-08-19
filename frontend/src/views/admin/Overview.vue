@@ -11,14 +11,16 @@ const stats = ref({
   todayNewUsers: 0,
   todayNewProducts: 0,
   pendingReviews: 0,
-  pendingReports: 0
+  pendingReports: 0,
+  pendingVerifications: 0,
 })
 
 const cards = [
   { key: 'userCount', title: '用户总数', icon: 'UserFilled', color: '#4caf50' },
   { key: 'productCount', title: '商品总数', icon: 'Goods', color: '#ff9800' },
   { key: 'orderCount', title: '订单总数', icon: 'List', color: '#2196f3' },
-  { key: 'pendingReviews', title: '待审核', icon: 'Clock', color: '#f44336' },
+  { key: 'pendingReviews', title: '待审核商品', icon: 'Clock', color: '#f44336' },
+  { key: 'pendingVerifications', title: '认证待审核', icon: 'Medal', color: '#e91e63' },
   { key: 'pendingReports', title: '待处理举报', icon: 'Warning', color: '#9c27b0' },
   { key: 'todayNewUsers', title: '今日新增用户', icon: 'User', color: '#00bcd4' },
   { key: 'todayNewProducts', title: '今日新增商品', icon: 'Box', color: '#ffc107' }

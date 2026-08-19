@@ -117,6 +117,9 @@ async function getProductDetail(id, userId) {
 
   const result = product.toJSON();
   result.is_favorited = isFavorited;
+  // 前端 ProductDetail.vue 读的是 res.isFavorited(camelCase),这里同时写 camel 别名,
+  // 避免返回只有 snake 的 is_favorited,前端永远是 false→"收藏过的商品仍显示『收藏』"。
+  result.isFavorited = isFavorited;
   return result;
 }
 

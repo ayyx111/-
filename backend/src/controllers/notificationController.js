@@ -21,7 +21,16 @@ exports.list = async (req, res, next) => {
       limit: pageSize,
       offset
     });
-    ResponseUtil.paginate(res, rows, count, page, pageSize);
+    // 统一返回 camel alias:NavBar 下拉/跳转直接用到 relatedId/isRead/createdAt
+    const normalized = rows.map((n) => {
+      const obj = n.toJSON();
+      obj.relatedId = obj.related_id;
+      obj.isRead = obj.is_read;
+      obj.createdAt = obj.created_at || obj.createdAt;
+      obj.updatedAt = obj.updated_at || obj.updatedAt;
+      return obj;
+    });
+    ResponseUtil.paginate(res, normalized, count, page, pageSize);
   } catch (err) { next(err); }
 };
 

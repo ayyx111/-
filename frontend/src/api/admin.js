@@ -17,6 +17,15 @@ export const adminApi = {
   // 用户管理:修改用户状态(0封禁 1正常)
   updateUserStatus: (id, status) => http.put(`/admin/users/${id}/status`, { status }),
 
+  // 校园认证审核:待审核列表(默认 verifyStatus=2 待审核)
+  getVerifications: (params) => http.get('/admin/verifications', params),
+
+  // 校园认证审核:pass / reject
+  reviewVerification: (id, data) => http.put(`/admin/users/${id}/verify`, data),
+
+  // 管理员待办汇总(待审商品/待处理举报/待审认证)
+  getTodoCount: () => http.get('/admin/todo-count'),
+
   // 举报处理:列表
   getReports: (params) => http.get('/admin/reports', params),
 

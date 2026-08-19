@@ -38,6 +38,10 @@ async function listConversations(userId) {
   });
 
   // 组装会话:对方信息 + 最后消息 + 未读数 + 在线状态
+  // 注意:前端 messageStore/conversations 数组和 Index.vue 全是 camelCase 字段契约:
+  //   { userId, nickname, avatar, lastMessage, lastMessageTime, unreadCount, online }
+  // 老后端返回 snake:{ user:{id,...}, last_message:{...}, unread_count, online }→字段对不上,
+  // .find(c => c.userId === ...) 永远 null → "我的消息永远是空会话、发了消息也看不到"。
   const conversations = [];
   for (const msg of messages) {
     const isSender = msg.from_user_id === userId;
@@ -47,16 +51,21 @@ async function listConversations(userId) {
     });
     const online = await isUserOnline(other.id);
     conversations.push({
-      user: other,
-      last_message: {
-        id: msg.id,
-        content: msg.content,
-        msg_type: msg.msg_type,
-        created_at: msg.created_at,
-        from_user_id: msg.from_user_id
+      userId: other.id,
+      id: other.id,
+      username: other.username,
+      nickname: other.nickname || other.username || ('用户' + other.id),
+      avatar: other.avatar || '',
+      user: other, // 兼容老字段
+      lastMessage: msg.content,
+      last_message: { // 兼容老字段
+        id: msg.id, content: msg.content, msg_type: msg.msg_type,
+        created_at: msg.created_at, from_user_id: msg.from_user_id,
       },
-      unread_count: unreadCount,
-      online
+      lastMessageTime: msg.created_at,
+      unreadCount,
+      unread_count: unreadCount, // 兼容老字段
+      online,
     });
   }
   return conversations;
@@ -85,7 +94,19 @@ async function getChatHistory(userId, otherUserId, { beforeId, limit = 30 }) {
     order: [['id', 'DESC']],
     limit: Math.min(Number(limit) || 30, 100)
   });
-  return messages; // 倒序返回,前端可自行 reverse
+  // 返回时给每条消息补 camelCase 别名:
+  // 前端 message row 用 `msg.isSelf || msg.fromUserId === userInfo?.id` 判断气泡归属,
+  // 老后端只返回 snake(from_user_id/to_user_id)→这些判断永远 false→"发了消息自己/对面都看不到"。
+  return messages.map((m) => {
+    const obj = m.toJSON();
+    obj.fromUserId = obj.from_user_id;
+    obj.toUserId = obj.to_user_id;
+    obj.msgType = obj.msg_type ?? obj.msgType;
+    obj.isRead = !!obj.is_read;
+    obj.productId = obj.product_id;
+    obj.createdAt = obj.created_at || obj.createdAt;
+    return obj;
+  });
 }
 
 /**
@@ -125,7 +146,16 @@ async function sendMessage({ fromUserId, toUserId, content, msgType = 0, product
   const full = await Message.findByPk(message.id, {
     include: [{ model: Product, as: 'product', attributes: ['id', 'title', 'price'], required: false }]
   });
-  return full;
+  // 补 camel alias: 前端 messageStore sendMessage 成功替换临时消息时读 saved.fromUserId/saved.createdAt
+  const obj = full.toJSON();
+  obj.fromUserId = obj.from_user_id;
+  obj.toUserId = obj.to_user_id;
+  obj.msgType = obj.msg_type;
+  obj.createdAt = obj.created_at || obj.createdAt;
+  obj.updatedAt = obj.updated_at || obj.updatedAt;
+  obj.productId = obj.product_id;
+  obj.isRead = obj.is_read;
+  return obj;
 }
 
 /**

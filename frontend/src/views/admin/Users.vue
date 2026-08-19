@@ -87,10 +87,12 @@ onMounted(loadData)
       </el-table-column>
       <el-table-column label="学校" prop="school" min-width="140" show-overflow-tooltip />
       <el-table-column label="信用分" prop="creditScore" width="100" align="center" />
-      <el-table-column label="认证" width="80" align="center">
+      <el-table-column label="认证" width="100" align="center">
         <template #default="{ row }">
-          <el-tag v-if="row.isVerified === 1" type="success" size="small">已认证</el-tag>
-          <el-tag v-else type="info" size="small">未认证</el-tag>
+          <el-tag v-if="row.isVerified === 1" type="success" size="small">已通过</el-tag>
+          <el-tag v-else-if="row.isVerified === 2" type="warning" size="small">待审核</el-tag>
+          <el-tag v-else-if="row.isVerified === 3" type="danger" size="small">未通过</el-tag>
+          <el-tag v-else type="info" size="small">未提交</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="角色" width="90" align="center">

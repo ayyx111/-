@@ -96,6 +96,16 @@ export const useUserStore = defineStore('user', () => {
     if (res.user) {
       userInfo.value = res.user
     }
+    // 登录即刷新:顶栏通知红点 / 消息红点会话未读 / WS 连接
+    // (restore 是启动时刷新登录态; login 是用户刚输入账号密码提交)
+    try {
+      const messageStore = (await import('./message')).useMessageStore()
+      messageStore.connectSocket()
+      await Promise.all([
+        fetchUnreadCount(),
+        messageStore.fetchConversations().catch(() => {})
+      ])
+    } catch (_) {}
     return res
   }
 
@@ -122,16 +132,32 @@ export const useUserStore = defineStore('user', () => {
   }
 
   /**
-   * 应用启动时恢复:有 token 则拉取用户信息
+   * 应用启动时恢复:有 token 则拉取用户信息+拉未读通知+拉会话未读+连接WS
    */
   async function restore() {
     if (token.value && !userInfo.value) {
       try {
         await getUserInfo()
-        fetchUnreadCount()
+        // 跟 login 对齐:建立 WS + 刷 未读通知/会话未读
+        const messageStore = (await import('./message')).useMessageStore()
+        messageStore.connectSocket()
+        await Promise.all([
+          fetchUnreadCount(),
+          messageStore.fetchConversations().catch(() => {})
+        ])
       } catch (e) {
         resetState()
       }
+    } else if (token.value && userInfo.value) {
+      // 已有 userInfo(可能上一步已恢复):也要确保 WS+未读已拉过一次
+      try {
+        const messageStore = (await import('./message')).useMessageStore()
+        messageStore.connectSocket()
+        await Promise.all([
+          fetchUnreadCount(),
+          messageStore.fetchConversations().catch(() => {})
+        ])
+      } catch (_) {}
     }
   }
 

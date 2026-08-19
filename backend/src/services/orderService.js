@@ -144,13 +144,14 @@ async function confirmOrder(userId, id, action, reason) {
     const product = await Product.findByPk(order.product_id, { transaction: t });
     if (action === 'accept') {
       await order.update({ status: ORDER_STATUS.WAITING, seller_confirmed: 1 }, { transaction: t });
-      // 通知买家
+      // 通知买家(事务内创建,避免第二条写连接抢 SQLite 写锁)
       await notifService.createNotification({
         userId: order.buyer_id,
         type: notifService.NOTIF_TYPE.ORDER,
         title: '卖家已确认订单',
         content: `卖家已确认「${order.product_title}」的订单,可联系交易。`,
-        relatedId: order.id
+        relatedId: order.id,
+        transaction: t
       });
     } else if (action === 'reject') {
       await order.update({
@@ -167,7 +168,8 @@ async function confirmOrder(userId, id, action, reason) {
         type: notifService.NOTIF_TYPE.ORDER,
         title: '卖家拒绝了您的订单',
         content: `卖家拒绝了「${order.product_title}」的订单。`,
-        relatedId: order.id
+        relatedId: order.id,
+        transaction: t
       });
     } else {
       throw new ApiError('action 参数非法(accept/reject)', 400);

@@ -11,11 +11,12 @@ const userStore = useUserStore()
 
 // 菜单项
 const menus = [
-  { index: '/admin/overview', title: '总览', icon: 'DataAnalysis' },
-  { index: '/admin/audit', title: '商品审核', icon: 'Goods' },
-  { index: '/admin/users', title: '用户管理', icon: 'UserFilled' },
-  { index: '/admin/reports', title: '举报处理', icon: 'Warning' },
-  { index: '/admin/statistics', title: '数据统计', icon: 'TrendCharts' }
+  { index: '/admin/overview', title: '总览', icon: 'DataAnalysis', badge: null },
+  { index: '/admin/audit', title: '商品审核', icon: 'Goods', badge: null },
+  { index: '/admin/verify', title: '校园认证审核', icon: 'Medal', badge: null },
+  { index: '/admin/users', title: '用户管理', icon: 'UserFilled', badge: null },
+  { index: '/admin/reports', title: '举报处理', icon: 'Warning', badge: null },
+  { index: '/admin/statistics', title: '数据统计', icon: 'TrendCharts', badge: null }
 ]
 
 const activeMenu = computed(() => route.path)

@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { ElMessage } from 'element-plus'
 import messageApi from '@/api/message'
 import { createSocket, getSocket, closeSocket, emitMessage, emitRead } from '@/utils/socket'
 import { useUserStore } from './user'
@@ -58,11 +59,14 @@ export const useMessageStore = defineStore('message', () => {
     // 监听接收消息
     socket.off('message:receive')
     socket.on('message:receive', (msg) => {
-      const fromId = msg.fromUserId
+      const fromId = msg.fromUserId ?? msg.from_user_id
+      if (!fromId) return
       if (!messages.value[fromId]) messages.value[fromId] = []
-      messages.value[fromId].push(msg)
+      // 去重:避免同一消息被 REST+WS 两条路径都插入
+      const exists = (messages.value[fromId] || []).find((m) => m.id && m.id === msg.id)
+      if (!exists) messages.value[fromId].push(msg)
       // 更新会话最后消息
-      updateConversation(fromId, msg.content, msg.createdAt)
+      updateConversation(fromId, msg.content, msg.createdAt || msg.created_at)
       // 非当前会话则增加未读
       if (currentUserId.value !== fromId) {
         const conv = conversations.value.find((c) => c.userId === fromId)
@@ -87,23 +91,55 @@ export const useMessageStore = defineStore('message', () => {
   }
 
   /**
-   * 发送消息
+   * 发送消息:先走 REST /messages 持久化写库(确保对方下次登录也能看到会话/历史),
+   * WebSocket 只是在线端的实时推送(不保证落库)。老实现只 emitMessage(Socket),
+   * 导致:1)对方没上线→DB没存→"发了消息,我的消息里看不到/对面也看不到";
+   *      2)自己页面只有乐观更新,刷新后就没了。
    */
-  function sendMessage(toUserId, content, productId) {
+  async function sendMessage(toUserId, content, productId) {
     const userStore = useUserStore()
-    const payload = { toUserId, content, msgType: 0, productId }
-    emitMessage(payload)
-    // 本地立即追加(乐观更新)
+    const payload = { toUserId, content, msgType: 0, productId: productId ?? null }
+    // 本地先乐观追加(让用户立即感知发送成功)
+    const tempId = Date.now()
+    const selfId = userStore.userInfo?.id
     if (!messages.value[toUserId]) messages.value[toUserId] = []
     messages.value[toUserId].push({
-      id: Date.now(),
-      fromUserId: userStore.userInfo?.id,
+      id: tempId,
+      fromUserId: selfId,
+      toUserId,
       content,
       msgType: 0,
       createdAt: new Date().toISOString(),
-      isSelf: true
+      productId: productId ?? null,
+      isSelf: true,
+      _pending: true,
     })
     updateConversation(toUserId, content, new Date().toISOString())
+    // 在线则尝试 WebSocket 推给对方
+    emitMessage(payload)
+    // REST 持久化
+    try {
+      const saved = await messageApi.send(payload)
+      // 将临时消息替换为服务端返回的真实消息(保留 id,避免 v-for 闪)
+      const arr = messages.value[toUserId] || []
+      const idx = arr.findIndex((m) => m.id === tempId)
+      if (idx >= 0 && saved) {
+        arr.splice(idx, 1, {
+          ...saved,
+          fromUserId: saved.fromUserId ?? selfId,
+          toUserId: saved.toUserId ?? toUserId,
+          createdAt: saved.createdAt || new Date().toISOString(),
+          isSelf: true,
+          _pending: false,
+        })
+      }
+    } catch (e) {
+      ElMessage?.error?.(e?.message || '消息发送失败,请稍后重试')
+      // 发送失败回滚临时消息(标红提示或删除,这里删除避免误导)
+      const arr = messages.value[toUserId] || []
+      const idx = arr.findIndex((m) => m.id === tempId)
+      if (idx >= 0) arr.splice(idx, 1)
+    }
   }
 
   /**

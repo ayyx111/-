@@ -46,6 +46,11 @@ function errorHandler(err, req, res, next) {
     httpStatus = err.statusCode;
     code = err.statusCode;
     message = err.message;
+  } else if (err && err.message && /database is locked|SQLITE_BUSY|SQLITE_LOCKED/i.test(err.message)) {
+    // SQLite 写锁冲突:底层重试用尽后给用户可读提示(不应 500 "服务器开小差")
+    httpStatus = 409;
+    code = 409;
+    message = '系统繁忙,请稍后重试(若反复出现请稍后再操作)';
   } else {
     message = err.message || message;
   }

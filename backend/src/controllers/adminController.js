@@ -117,6 +117,10 @@ exports.listUsers = async (req, res, next) => {
     if (req.query.status !== undefined && req.query.status !== '') {
       where.status = Number(req.query.status);
     }
+    // 只查校园认证相关：verifyStatus=0/1/2/3 过滤(默认不过滤)
+    if (req.query.verifyStatus !== undefined && req.query.verifyStatus !== '') {
+      where.is_verified = Number(req.query.verifyStatus);
+    }
     const { rows, count } = await User.findAndCountAll({
       where,
       attributes: { exclude: ['password'] },
@@ -124,7 +128,21 @@ exports.listUsers = async (req, res, next) => {
       limit: pageSize,
       offset
     });
-    ResponseUtil.paginate(res, rows, count, page, pageSize);
+    // 给每行补 camelCase alias:
+    // Users.vue / Verify 审核前端读 isVerified 等字段,老 sequelize 返回只有 snake(如 is_verified),
+    // 导致 2(待审核)/3(未通过) 显示成 "未认证",管理员永远看不到"认证待审核"。
+    const normalized = rows.map((u) => {
+      const obj = u.toJSON ? u.toJSON() : u;
+      obj.isVerified = obj.is_verified ?? 0;
+      obj.studentId = obj.student_id;
+      obj.campusProof = obj.campus_proof;
+      obj.enrollmentYear = obj.enrollment_year;
+      obj.creditScore = obj.credit_score;
+      obj.lastLoginAt = obj.last_login_at;
+      obj.createdAt = obj.created_at || obj.createdAt;
+      return obj;
+    });
+    ResponseUtil.paginate(res, normalized, count, page, pageSize);
   } catch (err) { next(err); }
 };
 
@@ -227,7 +245,8 @@ exports.stats = async (req, res, next) => {
       completedCount,
       reportCount,
       pendingReportCount,
-      categoryCount
+      categoryCount,
+      pendingVerificationCount,
     ] = await Promise.all([
       User.count(),
       Product.count(),
@@ -238,7 +257,8 @@ exports.stats = async (req, res, next) => {
       Order.count({ where: { status: 3 } }),
       Report.count(),
       Report.count({ where: { status: 0 } }),
-      Category.count()
+      Category.count(),
+      User.count({ where: { is_verified: 2 } }), // 2=待审核
     ]);
 
     // 今日新增(如果表没有 created_at 列, fallback 0)
@@ -259,11 +279,14 @@ exports.stats = async (req, res, next) => {
       reports: reportCount,
       pendingReports: pendingReportCount,
       categories: categoryCount,
+      pendingVerifications: pendingVerificationCount,
       // Overview.vue 期待命名(必须完全对齐)
       userCount,
       productCount,
       orderCount,
       pendingReviews: pendingReviewCount,
+      pendingReports: pendingReportCount,
+      pendingVerificationsCount: pendingVerificationCount, // 统计页兼容
       todayNewUsers,
       todayNewProducts,
       // Statistics.vue 条形图字段
@@ -334,3 +357,102 @@ async function countBetween(Model, dateCol, start, end) {
     });
   } catch (e) { return 0; }
 }
+
+/** 校园认证待审核列表(is_verified=2,按提交时间正序)
+ *  GET /admin/verifications?page=&pageSize=
+ */
+exports.listVerifications = async (req, res, next) => {
+  try {
+    const { page, pageSize, offset } = validator.parsePaging(req);
+    // 0 未认证 1 已认证 2 待审核 3 未通过;默认只看 2(待审核)
+    const vs = req.query.verifyStatus !== undefined && req.query.verifyStatus !== ''
+      ? Number(req.query.verifyStatus) : 2;
+    const where = { is_verified: vs };
+    if (req.query.keyword) {
+      where[Op.or] = [
+        { username: { [Op.like]: `%${req.query.keyword}%` } },
+        { nickname: { [Op.like]: `%${req.query.keyword}%` } },
+        { student_id: { [Op.like]: `%${req.query.keyword}%` } },
+        { school: { [Op.like]: `%${req.query.keyword}%` } },
+        { college: { [Op.like]: `%${req.query.keyword}%` } },
+      ];
+    }
+    const { rows, count } = await User.findAndCountAll({
+      where,
+      attributes: { exclude: ['password'] },
+      order: [['updated_at', 'ASC']],
+      limit: pageSize,
+      offset,
+    });
+    const normalized = rows.map((u) => {
+      const obj = u.toJSON ? u.toJSON() : u;
+      obj.isVerified = obj.is_verified ?? 0;
+      obj.studentId = obj.student_id;
+      obj.campusProof = obj.campus_proof;
+      obj.enrollmentYear = obj.enrollment_year;
+      obj.creditScore = obj.credit_score;
+      obj.lastLoginAt = obj.last_login_at;
+      obj.createdAt = obj.created_at || obj.createdAt;
+      return obj;
+    });
+    ResponseUtil.paginate(res, normalized, count, page, pageSize);
+  } catch (err) { next(err); }
+};
+
+/** 审核校园认证 action: pass | reject
+ *  PUT /admin/users/:id/verify
+ */
+exports.reviewVerification = async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const { action, reason } = req.body;
+    if (!validator.isPositiveId(id)) throw new ApiError('用户ID非法', 400);
+    if (!['pass', 'reject'].includes(action)) {
+      throw new ApiError('action 参数非法(pass/reject)', 400);
+    }
+    const user = await User.findByPk(id);
+    if (!user) throw new ApiError('用户不存在', 404);
+    if (user.is_verified !== 2) throw new ApiError('该用户当前不在待审核状态', 400);
+
+    if (action === 'pass') {
+      await user.update({ is_verified: 1 });
+      await notifService.createNotification({
+        userId: id,
+        type: notifService.NOTIF_TYPE.SYSTEM,
+        title: '校园认证通过',
+        content: '恭喜,你的校园认证已通过,可发布和购买商品了~',
+        relatedId: id,
+      });
+      await logAction(req, 'verify_campus_pass', 'user', id, { reason: reason || '' });
+      ResponseUtil.success(res, null, '已通过校园认证');
+    } else {
+      await user.update({ is_verified: 3 }); // 3=未通过
+      await notifService.createNotification({
+        userId: id,
+        type: notifService.NOTIF_TYPE.SYSTEM,
+        title: '校园认证未通过',
+        content: `原因:${reason || '资料不完整或有误,请重新提交'}`,
+        relatedId: id,
+      });
+      await logAction(req, 'verify_campus_reject', 'user', id, { reason: reason || '' });
+      ResponseUtil.success(res, null, '已驳回校园认证');
+    }
+  } catch (err) { next(err); }
+};
+
+/** 管理员后台: 汇总待处理数 (pendingProducts + pendingReports + pendingVerifications)
+ *  给管理后台右上角"待办小红点"用; GET /admin/todo-count
+ */
+exports.todoCount = async (req, res, next) => {
+  try {
+    const [p, r, v] = await Promise.all([
+      Product.count({ where: { status: productService.PRODUCT_STATUS.PENDING } }),
+      Report.count({ where: { status: 0 } }),
+      User.count({ where: { is_verified: 2 } }),
+    ]);
+    ResponseUtil.success(res, {
+      pendingProducts: p, pendingReports: r, pendingVerifications: v,
+      total: p + r + v,
+    });
+  } catch (err) { next(err); }
+};
