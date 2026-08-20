@@ -57,6 +57,18 @@ const config = {
     publicBaseUrl: process.env.UPLOAD_PUBLIC_BASE_URL || ''
   },
 
+  // Cloudinary 云存储配置（无签名上传模式,用于永久存储图片）
+  // 需要在 Cloudinary Console 创建 Unsigned Upload Preset
+  // 文档: https://cloudinary.com/documentation/upload_presets
+  cloudinary: {
+    // Cloud Name
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+    // 无签名 Upload Preset 名称(在 Cloudinary Console 创建)
+    uploadPreset: process.env.CLOUDINARY_UPLOAD_PRESET || '',
+    // 上传目录(在 Cloudinary Media Library 里的文件夹)
+    folder: process.env.CLOUDINARY_FOLDER || 'campus-fish'
+  },
+
   // 限流
   rateLimit: {
     loginMax: parseInt(process.env.RATE_LIMIT_LOGIN_MAX, 10) || 5,
