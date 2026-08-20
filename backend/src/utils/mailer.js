@@ -1,10 +1,6 @@
 /**
  * 邮件发送工具
- * 优先级: SendGrid > Brevo > Resend > SMTP > 降级
- * - SendGrid: 免费100封/天,可发到任意邮箱,Railway 可用
- * - Brevo: 免费300封/天(备用)
- * - Resend: 免费版仅能发到注册邮箱
- * - SMTP: 本地开发用
+ * 优先级: Render 中转(QQ SMTP) > Resend > 本地 SMTP > 降级
  */
 const nodemailer = require('nodemailer');
 const config = require('../config');
@@ -14,25 +10,18 @@ let transporter = null;
 
 function getTransporter() {
   if (transporter) return transporter;
-
-  if (!config.email.host || !config.email.user || !config.email.pass) {
-    return null;
-  }
+  if (!config.email.host || !config.email.user || !config.email.pass) return null;
 
   transporter = nodemailer.createTransport({
     host: config.email.host,
     port: config.email.port,
     secure: config.email.secure,
     requireTLS: !config.email.secure,
-    auth: {
-      user: config.email.user,
-      pass: config.email.pass
-    },
+    auth: { user: config.email.user, pass: config.email.pass },
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 15000
   });
-
   return transporter;
 }
 
@@ -59,43 +48,16 @@ function buildHtml(code) {
 }
 
 /**
- * 通过 SendGrid HTTP API 发送邮件
- * 免费 100 封/天,可发送到任意邮箱
+ * 通过 Render 中转服务发邮件(QQ SMTP)
  */
-async function sendViaSendGrid(toEmail, subject, html) {
-  await axios.post('https://api.sendgrid.com/v3/mail/send', {
-    personalizations: [{ to: [{ email: toEmail }] }],
-    from: { email: config.email.sendgridFrom, name: config.email.fromName || '校园咸鱼' },
-    subject,
-    content: [{ type: 'text/html', value: html }]
-  }, {
-    headers: {
-      'Authorization': `Bearer ${config.email.sendgridApiKey}`,
-      'Content-Type': 'application/json'
-    },
-    timeout: 15000
-  });
-}
-
-/**
- * 通过 Brevo HTTP API 发送邮件(备用)
- */
-async function sendViaBrevo(toEmail, subject, html) {
-  await axios.post('https://api.brevo.com/v3/smtp/email', {
-    sender: {
-      email: config.email.brevoFrom,
-      name: config.email.fromName || '校园咸鱼'
-    },
-    to: [{ email: toEmail }],
-    subject,
-    htmlContent: html
-  }, {
-    headers: {
-      'api-key': config.email.brevoApiKey,
-      'Content-Type': 'application/json'
-    },
-    timeout: 15000
-  });
+async function sendViaRelay(toEmail, subject, html) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (config.email.relayToken) {
+    headers['Authorization'] = `Bearer ${config.email.relayToken}`;
+  }
+  await axios.post(`${config.email.relayUrl}/send`, {
+    to: toEmail, subject, html
+  }, { headers, timeout: 15000 });
 }
 
 /**
@@ -104,9 +66,7 @@ async function sendViaBrevo(toEmail, subject, html) {
 async function sendViaResend(toEmail, subject, html) {
   await axios.post('https://api.resend.com/emails', {
     from: `校园咸鱼 <${config.email.resendFrom}>`,
-    to: [toEmail],
-    subject,
-    html
+    to: [toEmail], subject, html
   }, {
     headers: {
       'Authorization': `Bearer ${config.email.resendApiKey}`,
@@ -118,37 +78,23 @@ async function sendViaResend(toEmail, subject, html) {
 
 /**
  * 发送验证码邮件
- * @param {string} toEmail 收件人邮箱
- * @param {string} code 6位验证码
- * @returns {Promise<{sent: boolean, channel: string}>}
  */
 async function sendVerifyCodeEmail(toEmail, code) {
   const subject = '【校园咸鱼】注册验证码';
   const html = buildHtml(code);
 
-  // 方式 A: SendGrid API(最优先,可发到任意邮箱)
-  if (config.email.sendgridApiKey) {
+  // 方式 A: Render 中转(优先,QQ SMTP,可发到任意邮箱)
+  if (config.email.relayUrl) {
     try {
-      await sendViaSendGrid(toEmail, subject, html);
-      console.log(`[验证码] SendGrid 邮件已发送至 ${toEmail}`);
-      return { sent: true, channel: 'sendgrid' };
+      await sendViaRelay(toEmail, subject, html);
+      console.log(`[验证码] Render 中转邮件已发送至 ${toEmail}`);
+      return { sent: true, channel: 'relay' };
     } catch (err) {
-      console.error(`[验证码] SendGrid 发送失败: ${err.message}`);
+      console.error(`[验证码] Render 中转失败: ${err.message}`);
     }
   }
 
-  // 方式 B: Brevo API(备用)
-  if (config.email.brevoApiKey) {
-    try {
-      await sendViaBrevo(toEmail, subject, html);
-      console.log(`[验证码] Brevo 邮件已发送至 ${toEmail}`);
-      return { sent: true, channel: 'brevo' };
-    } catch (err) {
-      console.error(`[验证码] Brevo 发送失败: ${err.message}`);
-    }
-  }
-
-  // 方式 C: Resend API(备用)
+  // 方式 B: Resend API(备用,仅能发到注册邮箱)
   if (config.email.resendApiKey) {
     try {
       await sendViaResend(toEmail, subject, html);
@@ -159,7 +105,7 @@ async function sendVerifyCodeEmail(toEmail, code) {
     }
   }
 
-  // 方式 D: SMTP(本地开发用)
+  // 方式 C: 本地 SMTP(本地开发用)
   const t = getTransporter();
   if (t) {
     const fromEmail = config.email.from || config.email.user;
@@ -167,9 +113,7 @@ async function sendVerifyCodeEmail(toEmail, code) {
     try {
       await t.sendMail({
         from: `"${fromName}" <${fromEmail}>`,
-        to: toEmail,
-        subject,
-        html
+        to: toEmail, subject, html
       });
       console.log(`[验证码] SMTP 邮件已发送至 ${toEmail}`);
       return { sent: true, channel: 'smtp' };
@@ -184,29 +128,24 @@ async function sendVerifyCodeEmail(toEmail, code) {
 }
 
 /**
- * 调试:测试所有邮件通道,返回详细错误信息
+ * 调试:测试邮件通道
  */
 async function debugEmail(toEmail) {
   const results = {};
-  const subject = '【校园咸鱼】SMTP 调试测试';
-  const html = '<p>这是一封调试测试邮件</p>';
+  const subject = '【校园咸鱼】调试测试';
+  const html = '<p>调试测试邮件</p>';
 
-  // 测试 SMTP
-  if (config.email.host && config.email.user && config.email.pass) {
+  if (config.email.relayUrl) {
     try {
-      const t = getTransporter();
-      const fromEmail = config.email.from || config.email.user;
-      const fromName = config.email.fromName || '校园咸鱼';
-      await t.sendMail({ from: `"${fromName}" <${fromEmail}>`, to: toEmail, subject, html });
-      results.smtp = { success: true };
+      await sendViaRelay(toEmail, subject, html);
+      results.relay = { success: true };
     } catch (err) {
-      results.smtp = { success: false, error: err.message, code: err.code };
+      results.relay = { success: false, error: err.message, status: err.response?.status, data: JSON.stringify(err.response?.data) };
     }
   } else {
-    results.smtp = { success: false, error: 'SMTP 未配置' };
+    results.relay = { success: false, error: '未配置 EMAIL_RELAY_URL' };
   }
 
-  // 测试 Resend
   if (config.email.resendApiKey) {
     try {
       await sendViaResend(toEmail, subject, html);
@@ -216,10 +155,17 @@ async function debugEmail(toEmail) {
     }
   }
 
+  if (config.email.host && config.email.user && config.email.pass) {
+    try {
+      const t = getTransporter();
+      await t.sendMail({ from: config.email.user, to: toEmail, subject, html });
+      results.smtp = { success: true };
+    } catch (err) {
+      results.smtp = { success: false, error: err.message, code: err.code };
+    }
+  }
+
   return results;
 }
 
-module.exports = {
-  sendVerifyCodeEmail,
-  debugEmail
-};
+module.exports = { sendVerifyCodeEmail, debugEmail };
