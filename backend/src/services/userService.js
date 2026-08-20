@@ -64,13 +64,20 @@ async function changePassword(userId, { oldPassword, newPassword }) {
 
 /**
  * 修改邮箱(需验证码校验)
+ * 安全策略:验证码发送到旧邮箱(当前绑定邮箱),验证身份后才能修改
  */
 async function changeEmail(userId, newEmail, code) {
   const user = await User.findByPk(userId);
   if (!user) throw new ApiError('用户不存在', 404);
+  if (!user.email) throw new ApiError('当前账号未绑定邮箱,无法修改', 400);
 
   if (!validator.isEmail(newEmail)) throw new ApiError('邮箱格式不正确', 400);
   if (!validator.isVerifyCode(code)) throw new ApiError('验证码格式不正确', 400);
+
+  // 不能设置与旧邮箱相同的新邮箱
+  if (user.email === newEmail) {
+    throw new ApiError('新邮箱不能与旧邮箱相同', 400);
+  }
 
   // 检查新邮箱是否已被其他用户使用
   const exists = await User.findOne({ where: { email: newEmail } });
@@ -78,8 +85,8 @@ async function changeEmail(userId, newEmail, code) {
     throw new ApiError('该邮箱已被注册', 409);
   }
 
-  // 验证码校验(复用 authService 的 checkVerifyCode)
-  await authService.checkVerifyCode(newEmail, code);
+  // 验证码校验:向旧邮箱(当前邮箱)发送验证码,验证用户身份
+  await authService.checkVerifyCode(user.email, code);
 
   await user.update({ email: newEmail });
   return authService.sanitizeUser(user);

@@ -154,17 +154,18 @@ async function changePassword() {
 }
 
 async function sendEmailCode() {
-  if (!emailForm.newEmail) {
-    ElMessage.warning('请先填写新邮箱')
+  const oldEmail = userInfo.value?.email
+  if (!oldEmail) {
+    ElMessage.error('当前账号未绑定邮箱')
     return
   }
   codeLoading.value = true
   try {
-    const data = await authApi.sendCode({ target: emailForm.newEmail, type: 'register' })
+    const data = await authApi.sendCode({ target: oldEmail, type: 'change-email' })
     if (data?.code) {
       ElMessage({ message: `验证码: ${data.code}（开发模式,未配置SMTP）`, type: 'success', duration: 5000 })
     } else {
-      ElMessage.success('验证码已发送至邮箱,请查收')
+      ElMessage.success(`验证码已发送至旧邮箱 ${oldEmail},请查收`)
     }
     startCountdown()
   } catch (e) {
@@ -297,13 +298,14 @@ onMounted(async () => {
               </el-form>
               <el-divider />
               <div class="section-title">修改邮箱</div>
+              <div class="email-tip">为保障账号安全,需先通过旧邮箱验证身份</div>
               <el-form ref="emailFormRef" :model="emailForm" :rules="emailRules" label-width="80px" size="large" style="max-width: 460px; margin-top: 12px">
-                <el-form-item label="新邮箱" prop="newEmail">
-                  <el-input v-model="emailForm.newEmail" placeholder="请输入新邮箱" />
+                <el-form-item label="旧邮箱">
+                  <el-input :model-value="userInfo?.email || '未绑定'" disabled />
                 </el-form-item>
                 <el-form-item label="验证码" prop="code">
                   <div class="code-row">
-                    <el-input v-model="emailForm.code" placeholder="请输入验证码" />
+                    <el-input v-model="emailForm.code" placeholder="请输入旧邮箱收到的验证码" />
                     <el-button
                       type="primary"
                       plain
@@ -314,6 +316,9 @@ onMounted(async () => {
                       {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
                     </el-button>
                   </div>
+                </el-form-item>
+                <el-form-item label="新邮箱" prop="newEmail">
+                  <el-input v-model="emailForm.newEmail" placeholder="请输入新邮箱地址" />
                 </el-form-item>
                 <el-form-item>
                   <el-button type="primary" :loading="emailLoading" @click="changeEmail">确认修改</el-button>
@@ -351,6 +356,11 @@ onMounted(async () => {
   font-size: 16px;
   font-weight: 600;
   margin-bottom: 4px;
+}
+.email-tip {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
 }
 .code-row {
   display: flex;
