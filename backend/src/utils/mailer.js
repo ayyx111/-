@@ -24,7 +24,10 @@ function getTransporter() {
     auth: {
       user: config.email.user,
       pass: config.email.pass
-    }
+    },
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 15000
   });
 
   return transporter;
@@ -75,15 +78,19 @@ async function sendVerifyCodeEmail(toEmail, code) {
     </div>
   </div>`;
 
-  await t.sendMail({
-    from: `"${fromName}" <${fromEmail}>`,
-    to: toEmail,
-    subject: '【校园咸鱼】注册验证码',
-    html
-  });
-
-  console.log(`[验证码] 邮件已发送至 ${toEmail}`);
-  return { sent: true, channel: 'email' };
+  try {
+    await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: toEmail,
+      subject: '【校园咸鱼】注册验证码',
+      html
+    });
+    console.log(`[验证码] 邮件已发送至 ${toEmail}`);
+    return { sent: true, channel: 'email' };
+  } catch (err) {
+    console.error(`[验证码] SMTP 发送失败: ${err.message}`);
+    return { sent: false, channel: 'error', error: err.message };
+  }
 }
 
 module.exports = {
