@@ -46,4 +46,40 @@ router.get('/debug-email', async (req, res) => {
   }
 });
 
+// 调试接口:测试 SMTP 端口连通性
+router.get('/debug-smtp', async (req, res) => {
+  const net = require('net');
+  const targets = [
+    { name: 'QQ 465', host: 'smtp.qq.com', port: 465 },
+    { name: 'QQ 587', host: 'smtp.qq.com', port: 587 },
+    { name: 'Outlook 587', host: 'smtp.office365.com', port: 587 },
+    { name: 'Gmail 465', host: 'smtp.gmail.com', port: 465 },
+    { name: 'Gmail 587', host: 'smtp.gmail.com', port: 587 },
+    { name: '163 465', host: 'smtp.163.com', port: 465 }
+  ];
+  const results = {};
+  await Promise.all(targets.map(t => {
+    return new Promise(resolve => {
+      const socket = new net.Socket();
+      const timeout = setTimeout(() => {
+        socket.destroy();
+        results[t.name] = 'TIMEOUT';
+        resolve();
+      }, 8000);
+      socket.connect(t.port, t.host, () => {
+        clearTimeout(timeout);
+        socket.destroy();
+        results[t.name] = 'OK';
+        resolve();
+      });
+      socket.on('error', (err) => {
+        clearTimeout(timeout);
+        results[t.name] = err.code || err.message;
+        resolve();
+      });
+    });
+  }));
+  res.json({ code: 200, data: results });
+});
+
 module.exports = router;
