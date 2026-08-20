@@ -9,5 +9,6 @@ const { auth } = require('../middleware/auth');
 router.get('/profile', auth, userController.getProfile);
 router.put('/profile', auth, userController.updateProfile);
 router.put('/password', auth, userController.changePassword);
+router.put('/email', auth, userController.changeEmail);
 
 module.exports = router;

@@ -1,10 +1,11 @@
 /**
  * JWT 认证中间件
- * - auth:       必须登录
+ * - auth:       必须登录(含封禁检查)
  * - optional:   可选登录(登录则注入用户,未登录忽略)
  */
 const ResponseUtil = require('../utils/response');
 const jwtUtil = require('../utils/jwt');
+const { User } = require('../models');
 
 /**
  * 从请求头获取 Token
@@ -44,11 +45,19 @@ async function resolveUser(req) {
   }
 }
 
-/** 必须登录 */
+/** 必须登录(含封禁检查) */
 async function auth(req, res, next) {
   const user = await resolveUser(req);
   if (!user) {
     return ResponseUtil.unauthorized(res);
+  }
+  // 封禁检查:实时查询用户状态,已封禁则立即拒绝
+  const dbUser = await User.findByPk(user.id, { attributes: ['status'] });
+  if (!dbUser) {
+    return ResponseUtil.unauthorized(res);
+  }
+  if (dbUser.status === 0) {
+    return ResponseUtil.forbidden(res, '账号已被封禁,请联系管理员');
   }
   req.user = user;
   next();

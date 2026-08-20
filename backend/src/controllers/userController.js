@@ -3,6 +3,7 @@
  */
 const userService = require('../services/userService');
 const ResponseUtil = require('../utils/response');
+const authService = require('../services/authService');
 
 /** 获取个人信息 */
 exports.getProfile = async (req, res, next) => {
@@ -26,5 +27,14 @@ exports.changePassword = async (req, res, next) => {
     const { oldPassword, newPassword } = req.body;
     await userService.changePassword(req.user.id, { oldPassword, newPassword });
     ResponseUtil.success(res, null, '密码修改成功');
+  } catch (err) { next(err); }
+};
+
+/** 修改邮箱(需验证码) */
+exports.changeEmail = async (req, res, next) => {
+  try {
+    const { newEmail, code } = req.body;
+    const user = await userService.changeEmail(req.user.id, newEmail, code);
+    ResponseUtil.success(res, user, '邮箱修改成功');
   } catch (err) { next(err); }
 };

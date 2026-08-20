@@ -14,6 +14,9 @@ export const userApi = {
   // 修改密码
   updatePassword: (data) => http.put('/user/password', data),
 
+  // 修改邮箱
+  changeEmail: (data) => http.put('/user/email', data),
+
   // 提交举报
   report: (data) => http.post('/reports', data)
 }

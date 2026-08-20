@@ -2,6 +2,7 @@
  * 用户服务
  */
 const bcrypt = require('bcryptjs');
+const { Op } = require('sequelize');
 const { User, Review } = require('../models');
 const { ApiError } = require('../middleware/errorHandler');
 const authService = require('./authService');
@@ -62,6 +63,29 @@ async function changePassword(userId, { oldPassword, newPassword }) {
 }
 
 /**
+ * 修改邮箱(需验证码校验)
+ */
+async function changeEmail(userId, newEmail, code) {
+  const user = await User.findByPk(userId);
+  if (!user) throw new ApiError('用户不存在', 404);
+
+  if (!validator.isEmail(newEmail)) throw new ApiError('邮箱格式不正确', 400);
+  if (!validator.isVerifyCode(code)) throw new ApiError('验证码格式不正确', 400);
+
+  // 检查新邮箱是否已被其他用户使用
+  const exists = await User.findOne({ where: { email: newEmail } });
+  if (exists && exists.id !== userId) {
+    throw new ApiError('该邮箱已被注册', 409);
+  }
+
+  // 验证码校验(复用 authService 的 checkVerifyCode)
+  await authService.checkVerifyCode(newEmail, code);
+
+  await user.update({ email: newEmail });
+  return authService.sanitizeUser(user);
+}
+
+/**
  * 获取用户公开信息(用于商品详情显示卖家)
  */
 async function getPublicInfo(userId) {
@@ -75,5 +99,6 @@ module.exports = {
   getProfile,
   updateProfile,
   changePassword,
+  changeEmail,
   getPublicInfo
 };

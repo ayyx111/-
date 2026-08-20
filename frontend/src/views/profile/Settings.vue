@@ -19,6 +19,10 @@ const activeTab = ref('profile')
 const profileLoading = ref(false)
 const avatarUploading = ref(false)
 const pwdLoading = ref(false)
+const emailLoading = ref(false)
+const codeLoading = ref(false)
+const codeDisabled = ref(false)
+const countdown = ref(0)
 
 const profileForm = reactive({
   nickname: '',
@@ -26,6 +30,20 @@ const profileForm = reactive({
   avatar: ''
 })
 const avatarUrl = ref('')
+
+const emailForm = reactive({
+  newEmail: '',
+  code: ''
+})
+const emailFormRef = ref()
+
+const emailRules = {
+  newEmail: [
+    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' },
+    { required: true, message: '请输入新邮箱', trigger: 'blur' }
+  ],
+  code: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
+}
 
 const pwdForm = reactive({
   oldPassword: '',
@@ -135,6 +153,62 @@ async function changePassword() {
   })
 }
 
+async function sendEmailCode() {
+  if (!emailForm.newEmail) {
+    ElMessage.warning('请先填写新邮箱')
+    return
+  }
+  codeLoading.value = true
+  try {
+    const data = await authApi.sendCode({ target: emailForm.newEmail, type: 'register' })
+    if (data?.code) {
+      ElMessage({ message: `验证码: ${data.code}（开发模式,未配置SMTP）`, type: 'success', duration: 5000 })
+    } else {
+      ElMessage.success('验证码已发送至邮箱,请查收')
+    }
+    startCountdown()
+  } catch (e) {
+    const msg = e?.response?.data?.message || e?.message || '获取验证码失败'
+    ElMessage.error(msg)
+  } finally {
+    codeLoading.value = false
+  }
+}
+
+function startCountdown() {
+  countdown.value = 60
+  codeDisabled.value = true
+  const timer = setInterval(() => {
+    countdown.value--
+    if (countdown.value <= 0) {
+      clearInterval(timer)
+      codeDisabled.value = false
+    }
+  }, 1000)
+}
+
+async function changeEmail() {
+  await emailFormRef.value.validate(async (valid) => {
+    if (!valid) return
+    emailLoading.value = true
+    try {
+      const res = await userApi.changeEmail({
+        newEmail: emailForm.newEmail,
+        code: emailForm.code
+      })
+      userStore.setUserInfo(res)
+      ElMessage.success('邮箱修改成功')
+      emailForm.newEmail = ''
+      emailForm.code = ''
+      emailFormRef.value?.resetFields?.()
+    } catch (e) {
+      // error message handled by interceptor
+    } finally {
+      emailLoading.value = false
+    }
+  })
+}
+
 async function handleLogout() {
   await userStore.logout()
   messageStore.reset()
@@ -216,6 +290,36 @@ onMounted(async () => {
           <!-- 账号操作 -->
           <el-tab-pane label="账号" name="account">
             <div class="account-actions">
+              <el-form :model="{}" label-width="80px" size="large" style="max-width: 460px; margin-bottom: 20px">
+                <el-form-item label="当前邮箱">
+                  <el-input :model-value="userInfo?.email || '未绑定'" disabled />
+                </el-form-item>
+              </el-form>
+              <el-divider />
+              <div class="section-title">修改邮箱</div>
+              <el-form ref="emailFormRef" :model="emailForm" :rules="emailRules" label-width="80px" size="large" style="max-width: 460px; margin-top: 12px">
+                <el-form-item label="新邮箱" prop="newEmail">
+                  <el-input v-model="emailForm.newEmail" placeholder="请输入新邮箱" />
+                </el-form-item>
+                <el-form-item label="验证码" prop="code">
+                  <div class="code-row">
+                    <el-input v-model="emailForm.code" placeholder="请输入验证码" />
+                    <el-button
+                      type="primary"
+                      plain
+                      :loading="codeLoading"
+                      :disabled="codeDisabled"
+                      @click="sendEmailCode"
+                    >
+                      {{ countdown > 0 ? `${countdown}s` : '获取验证码' }}
+                    </el-button>
+                  </div>
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" :loading="emailLoading" @click="changeEmail">确认修改</el-button>
+                </el-form-item>
+              </el-form>
+              <el-divider />
               <el-button @click="handleLogout">退出登录</el-button>
             </div>
           </el-tab-pane>
@@ -242,6 +346,19 @@ onMounted(async () => {
 }
 .account-actions {
   padding: 20px 0;
+}
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.code-row {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  .el-input {
+    flex: 1;
+  }
 }
 :deep(.el-tabs__content) {
   padding-left: 30px;
