@@ -183,6 +183,43 @@ async function sendVerifyCodeEmail(toEmail, code) {
   return { sent: false, channel: 'console' };
 }
 
+/**
+ * 调试:测试所有邮件通道,返回详细错误信息
+ */
+async function debugEmail(toEmail) {
+  const results = {};
+  const subject = '【校园咸鱼】SMTP 调试测试';
+  const html = '<p>这是一封调试测试邮件</p>';
+
+  // 测试 SMTP
+  if (config.email.host && config.email.user && config.email.pass) {
+    try {
+      const t = getTransporter();
+      const fromEmail = config.email.from || config.email.user;
+      const fromName = config.email.fromName || '校园咸鱼';
+      await t.sendMail({ from: `"${fromName}" <${fromEmail}>`, to: toEmail, subject, html });
+      results.smtp = { success: true };
+    } catch (err) {
+      results.smtp = { success: false, error: err.message, code: err.code };
+    }
+  } else {
+    results.smtp = { success: false, error: 'SMTP 未配置' };
+  }
+
+  // 测试 Resend
+  if (config.email.resendApiKey) {
+    try {
+      await sendViaResend(toEmail, subject, html);
+      results.resend = { success: true };
+    } catch (err) {
+      results.resend = { success: false, error: err.message, status: err.response?.status, data: JSON.stringify(err.response?.data) };
+    }
+  }
+
+  return results;
+}
+
 module.exports = {
-  sendVerifyCodeEmail
+  sendVerifyCodeEmail,
+  debugEmail
 };

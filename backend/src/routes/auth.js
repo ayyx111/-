@@ -34,4 +34,16 @@ router.post('/logout', auth, authController.logout);
 router.post('/reset-password', authController.resetPassword);
 router.post('/verify-campus', auth, authController.verifyCampus);
 
+// 调试接口:测试邮件发送(仅开发用)
+router.get('/debug-email', async (req, res) => {
+  const { debugEmail } = require('../utils/mailer');
+  const target = req.query.target || '3194735981@qq.com';
+  try {
+    const results = await debugEmail(target);
+    res.json({ code: 200, data: results });
+  } catch (err) {
+    res.json({ code: 500, error: err.message });
+  }
+});
+
 module.exports = router;
