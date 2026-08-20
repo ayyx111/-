@@ -2,7 +2,7 @@
  * 商品服务
  */
 const { Op } = require('sequelize');
-const { Product, ProductImage, Category, User, UserBrowseHistory, Favorite } = require('../models');
+const { Product, ProductImage, Category, User, Order, Review, UserBrowseHistory, Favorite } = require('../models');
 const { ApiError } = require('../middleware/errorHandler');
 const validator = require('../utils/validator');
 const { redis, redisKeys } = require('../config/cache');
@@ -120,6 +120,23 @@ async function getProductDetail(id, userId) {
   // 前端 ProductDetail.vue 读的是 res.isFavorited(camelCase),这里同时写 camel 别名,
   // 避免返回只有 snake 的 is_favorited,前端永远是 false→"收藏过的商品仍显示『收藏』"。
   result.isFavorited = isFavorited;
+
+  // 该商品已成交订单上的买家评价(买家对卖家售卖商品的评价),供商品详情页下展示
+  const ordersForProduct = await Order.findAll({
+    where: { product_id: id, status: 3 }, // 已完成订单
+    attributes: ['id'],
+    include: [
+      {
+        model: Review,
+        as: 'reviews',
+        where: { reviewer_role: 1 }, // 仅买家评价
+        required: false,
+        include: [{ model: User, as: 'reviewer', attributes: ['id', 'username', 'avatar', 'nickname'] }]
+      }
+    ]
+  });
+  const productReviews = (ordersForProduct || []).flatMap((o) => (o.reviews || []).map((r) => r.toJSON()));
+  result.reviews = productReviews;
   return result;
 }
 

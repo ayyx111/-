@@ -3,7 +3,9 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { storeToRefs } from 'pinia'
 import orderApi from '@/api/order'
+import { useUserStore } from '@/stores/user'
 import {
   formatPrice,
   formatTime,
@@ -13,6 +15,8 @@ import {
 } from '@/utils/format'
 
 const router = useRouter()
+const userStore = useUserStore()
+const { userInfo } = storeToRefs(userStore)
 const loading = ref(false)
 const activeTab = ref('buyer')
 const list = ref([])
@@ -82,6 +86,30 @@ async function handleComplete(order) {
   } catch (e) {}
 }
 
+// 当前订单中当前用户是否为买家/卖家
+function isBuyer(order) {
+  return order?.buyer?.id === userInfo.value?.id
+}
+function isSeller(order) {
+  return order?.seller?.id === userInfo.value?.id
+}
+
+// 列表内联评价
+const reviewVisible = ref(false)
+const reviewForm = ref({ orderId: null, rating: 5, content: '' })
+function openReview(order) {
+  reviewForm.value = { orderId: order.id, rating: 5, content: '' }
+  reviewVisible.value = true
+}
+async function submitReview() {
+  try {
+    await orderApi.review(reviewForm.value.orderId, { rating: reviewForm.value.rating, content: reviewForm.value.content })
+    ElMessage.success('评价成功')
+    reviewVisible.value = false
+    loadData()
+  } catch (e) {}
+}
+
 onMounted(loadData)
 </script>
 
@@ -117,18 +145,20 @@ onMounted(loadData)
                 {{ getMapLabel(ORDER_STATUS_MAP, order.status).label }}
               </el-tag>
               <div class="o-actions" @click.stop>
-                <template v-if="activeTab === 'seller' && order.status === 0">
+                <template v-if="isSeller(order) && order.status === 0">
                   <el-button size="small" type="primary" @click="handleConfirm(order, 'accept')">接受</el-button>
                   <el-button size="small" type="danger" plain @click="handleConfirm(order, 'reject')">拒绝</el-button>
                 </template>
-                <template v-if="activeTab === 'buyer' && order.status === 0">
+                <template v-if="isBuyer(order) && order.status === 0">
                   <el-button size="small" @click="handleCancel(order)">取消</el-button>
                 </template>
-                <template v-if="order.status === 1">
+                <!-- 仅买家确认交易完成(status=2 为旧版两步确认流遗留订单,提供恢复通道) -->
+                <template v-if="isBuyer(order) && (order.status === 1 || order.status === 2)">
                   <el-button size="small" type="primary" @click="handleComplete(order)">确认完成</el-button>
                 </template>
-                <template v-if="order.status === 2 && !order.isReviewed">
-                  <el-button size="small" type="warning" @click="router.push(`/orders/${order.id}`)">评价</el-button>
+                <!-- 买卖双方各自评价:交易完成后未评价 -->
+                <template v-if="order.status === 3 && !order.isReviewed">
+                  <el-button size="small" type="warning" @click="openReview(order)">评价</el-button>
                 </template>
                 <el-button size="small" plain @click="router.push(`/orders/${order.id}`)">详情</el-button>
               </div>
@@ -149,6 +179,21 @@ onMounted(loadData)
         />
       </div>
     </div>
+
+    <el-dialog v-model="reviewVisible" title="评价交易" width="460px">
+      <el-form :model="reviewForm" label-width="80px">
+        <el-form-item label="评分">
+          <el-rate v-model="reviewForm.rating" />
+        </el-form-item>
+        <el-form-item label="评价内容">
+          <el-input v-model="reviewForm.content" type="textarea" :rows="4" placeholder="说说您的交易感受(选填)" maxlength="500" show-word-limit />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="reviewVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitReview">提交评价</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 

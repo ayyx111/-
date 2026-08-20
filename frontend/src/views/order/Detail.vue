@@ -27,6 +27,8 @@ const reviewForm = ref({ rating: 5, content: '' })
 const status = computed(() => getMapLabel(ORDER_STATUS_MAP, order.value?.status))
 const isBuyer = computed(() => order.value?.buyer?.id === userInfo.value?.id)
 const isSeller = computed(() => order.value?.seller?.id === userInfo.value?.id)
+// 当前用户是否已评价(后端按当前用户计算)
+const hasReviewed = computed(() => !!order.value?.isReviewed)
 
 async function loadOrder() {
   loading.value = true
@@ -153,21 +155,27 @@ onMounted(loadOrder)
           <template v-if="isBuyer && order.status === 0">
             <el-button @click="handleCancel">取消订单</el-button>
           </template>
-          <template v-if="order.status === 1">
+          <!-- 仅买家确认交易完成(status=2 为旧版两步确认流遗留订单,提供恢复通道) -->
+          <template v-if="isBuyer && (order.status === 1 || order.status === 2)">
             <el-button type="primary" @click="handleComplete">确认交易完成</el-button>
           </template>
-          <template v-if="order.status === 2 && !order.isReviewed">
+          <template v-if="order.status === 3 && !hasReviewed">
             <el-button type="warning" @click="openReview">评价</el-button>
           </template>
         </div>
       </div>
 
-      <!-- 评价展示 -->
-      <div v-if="order.review" class="review-card card">
+      <!-- 评价展示(买卖双方互评) -->
+      <div v-if="order.reviews?.length" class="review-card card">
         <h3>交易评价</h3>
-        <el-rate :model-value="order.review.rating" disabled />
-        <p>{{ order.review.content }}</p>
-        <span class="review-time">{{ formatTime(order.review.createdAt) }}</span>
+        <div v-for="rev in order.reviews" :key="rev.id" class="review-item">
+          <el-rate :model-value="rev.rating" disabled />
+          <p>{{ rev.content || '该用户未填写评价内容' }}</p>
+          <span class="review-meta">
+            {{ rev.reviewer_role === 1 ? '买家' : '卖家' }} {{ rev.reviewer?.nickname }}
+            · {{ formatTime(rev.createdAt) }}
+          </span>
+        </div>
       </div>
     </div>
 
@@ -277,13 +285,20 @@ onMounted(loadOrder)
     font-size: 16px;
     margin-bottom: 12px;
   }
-  p {
-    margin: 10px 0;
-    line-height: 1.6;
-  }
-  .review-time {
-    font-size: 12px;
-    color: var(--text-secondary);
+  .review-item {
+    padding: 14px 0;
+    border-bottom: 1px dashed var(--border-color);
+    &:last-child {
+      border-bottom: none;
+    }
+    p {
+      margin: 8px 0;
+      line-height: 1.6;
+    }
+    .review-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
   }
 }
 </style>

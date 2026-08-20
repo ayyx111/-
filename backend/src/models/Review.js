@@ -14,7 +14,6 @@ const Review = sequelize.define('reviews', {
   order_id: {
     type: DataTypes.BIGINT,
     allowNull: false,
-    unique: true,
     field: 'order_id',
     comment: '订单ID'
   },
@@ -52,6 +51,8 @@ const Review = sequelize.define('reviews', {
   timestamps: true,
   updatedAt: false,
   indexes: [
+    // 一个订单,同一个人最多评价一次(买家评卖家/卖家评买家,互不冲突)
+    { name: 'uq_reviews_order_user', unique: true, fields: ['order_id', 'from_user_id'] },
     { name: 'idx_reviews_from_user_id', fields: ['from_user_id'] },
     { name: 'idx_reviews_to_user_id', fields: ['to_user_id'] }
   ]

@@ -119,6 +119,8 @@ async function openNotifications() {
   if (!isLogin.value) return
   notifLoading.value = true
   try {
+    // 打开即同步刷新未读数(后端为准),避免标题/红点滞后
+    userStore.fetchUnreadCount().catch(() => {})
     const res = await notificationApi.getList({ page: 1, pageSize: 20 })
     notifications.value = (res && res.list) || []
     notifHasMore.value = !!(res && res.pagination && res.pagination.total > 20)

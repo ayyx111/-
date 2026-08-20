@@ -44,7 +44,7 @@ User.hasMany(Order, { foreignKey: 'seller_id', as: 'sellerOrders' });
 Order.belongsTo(User, { foreignKey: 'seller_id', as: 'seller' });
 
 // 订单 ↔ 评价 (1:1)
-Order.hasOne(Review, { foreignKey: 'order_id', as: 'review', onDelete: 'CASCADE' });
+Order.hasMany(Review, { foreignKey: 'order_id', as: 'reviews', onDelete: 'CASCADE' });
 Review.belongsTo(Order, { foreignKey: 'order_id', as: 'order' });
 
 // 用户 ↔ 评价(发送/接收)

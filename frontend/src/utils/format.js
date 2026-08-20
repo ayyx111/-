@@ -86,13 +86,13 @@ export const PRODUCT_STATUS_MAP = {
   4: { label: '审核未通过', color: 'danger' }
 }
 
-// 订单状态 0待确认 1已确认 2已完成 3已取消 4已拒绝
+// 订单状态 0待确认 1待交易 2交易中 3已完成 4已取消
 export const ORDER_STATUS_MAP = {
   0: { label: '待卖家确认', color: 'warning' },
-  1: { label: '已确认', color: 'primary' },
-  2: { label: '已完成', color: 'success' },
-  3: { label: '已取消', color: 'info' },
-  4: { label: '已拒绝', color: 'danger' }
+  1: { label: '待交易', color: 'primary' },
+  2: { label: '交易中', color: 'warning' },
+  3: { label: '已完成', color: 'success' },
+  4: { label: '已取消', color: 'info' }
 }
 
 // 通知类型

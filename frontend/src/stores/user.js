@@ -175,7 +175,8 @@ export const useUserStore = defineStore('user', () => {
     if (!token.value) return
     try {
       const res = await notificationApi.getUnreadCount()
-      unreadCount.value = res.total || 0
+      // 注意:http.get 经 request() 已解一层 data,res 即 { count }
+      unreadCount.value = (res && res.count) || 0
     } catch (e) {
       // ignore
     }

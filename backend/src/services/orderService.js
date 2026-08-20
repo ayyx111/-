@@ -100,33 +100,53 @@ async function listOrders(userId, query) {
     include: [
       { model: Product, as: 'product', attributes: ['id', 'title', 'price', 'status'] },
       { model: User, as: 'buyer', attributes: ['id', 'username', 'avatar', 'nickname'] },
-      { model: User, as: 'seller', attributes: ['id', 'username', 'avatar', 'nickname'] }
+      { model: User, as: 'seller', attributes: ['id', 'username', 'avatar', 'nickname'] },
+      {
+        model: Review,
+        as: 'reviews',
+        attributes: ['id', 'from_user_id', 'to_user_id', 'reviewer_role', 'rating', 'content'],
+        required: false
+      }
     ],
     order: [['created_at', 'DESC']],
     limit: pageSize,
     offset
   });
 
-  return { list: rows, total: count, page, pageSize };
+  // 为当前登录用户标记是否已评价(买卖双方互评,各自独立判断)
+  const list = rows.map((row) => {
+    const json = row.toJSON();
+    json.isReviewed = !!(json.reviews || []).some((r) => Number(r.from_user_id) === Number(userId));
+    delete json.reviews;
+    return json;
+  });
+
+  return { list, total: count, page, pageSize };
 }
 
 /**
  * 订单详情(买卖双方可查)
  */
 async function getOrderDetail(userId, id) {
+  if (!validator.isPositiveId(id)) throw new ApiError('订单ID非法', 400);
   const order = await Order.findByPk(id, {
     include: [
       { model: Product, as: 'product', include: [{ model: ProductImage, as: 'images', attributes: ['id', 'image_url', 'sort_order'] }] },
       { model: User, as: 'buyer', attributes: ['id', 'username', 'avatar', 'nickname'] },
       { model: User, as: 'seller', attributes: ['id', 'username', 'avatar', 'nickname'] },
-      { model: Review, as: 'review' }
+      { model: Review, as: 'reviews', include: [{ model: User, as: 'reviewer', attributes: ['id', 'username', 'avatar', 'nickname'] }] }
     ]
   });
   if (!order) throw new ApiError('订单不存在', 404);
   if (order.buyer_id !== userId && order.seller_id !== userId) {
     throw new ApiError('无权查看该订单', 403);
   }
-  return order;
+  const myReview = (order.reviews || []).find((r) => Number(r.from_user_id) === Number(userId)) || null;
+  return {
+    ...(order.toJSON()),
+    isReviewed: !!myReview,
+    myReview
+  };
 }
 
 /**
@@ -134,6 +154,7 @@ async function getOrderDetail(userId, id) {
  * action: accept | reject
  */
 async function confirmOrder(userId, id, action, reason) {
+  if (!validator.isPositiveId(id)) throw new ApiError('订单ID非法', 400);
   const order = await Order.findByPk(id);
   if (!order) throw new ApiError('订单不存在', 404);
   if (order.seller_id !== userId) throw new ApiError('仅卖家可操作', 403);
@@ -186,6 +207,7 @@ async function confirmOrder(userId, id, action, reason) {
  * 买家取消订单(仅 待确认/待交易 状态)
  */
 async function cancelOrder(userId, id, reason) {
+  if (!validator.isPositiveId(id)) throw new ApiError('订单ID非法', 400);
   const order = await Order.findByPk(id);
   if (!order) throw new ApiError('订单不存在', 404);
   if (order.buyer_id !== userId) throw new ApiError('仅买家可取消', 403);
@@ -223,52 +245,40 @@ async function cancelOrder(userId, id, reason) {
 }
 
 /**
- * 确认完成(买卖双方各自确认;双方均确认后订单完成)
- * 角色由 userId 与订单买卖双方比对自动推断
+ * 买家确认交易完成(订单直接完成)
+ * 仅买家可操作;卖家不应、也不能确认完成(只能接受/拒绝)
  */
 async function completeOrder(userId, id) {
+  if (!validator.isPositiveId(id)) throw new ApiError('订单ID非法', 400);
   const order = await Order.findByPk(id);
   if (!order) throw new ApiError('订单不存在', 404);
 
-  const isBuyer = order.buyer_id === userId;
-  const isSeller = order.seller_id === userId;
-  if (!isBuyer && !isSeller) throw new ApiError('无权操作该订单', 403);
-  if (order.status !== ORDER_STATUS.WAITING && order.status !== ORDER_STATUS.TRADING) {
+  if (order.buyer_id !== userId) throw new ApiError('仅买家可确认交易完成', 403);
+  // 待交易(1)/交易中(2)均可确认完成;status=2 仅存在于旧版两步确认流遗留的订单,这里为其提供恢复通道
+  if (![ORDER_STATUS.WAITING, ORDER_STATUS.TRADING].includes(order.status)) {
     throw new ApiError('当前订单状态不可确认完成', 400);
   }
 
   const t = await sequelize.transaction();
   try {
-    const update = {};
-    if (isBuyer) update.buyer_confirmed = 1;
-    if (isSeller) update.seller_confirmed = 1;
-
-    // 刷新当前确认状态
-    const buyerConfirmed = isBuyer ? 1 : order.buyer_confirmed;
-    const sellerConfirmed = isSeller ? 1 : order.seller_confirmed;
-
-    if (buyerConfirmed && sellerConfirmed) {
-      update.status = ORDER_STATUS.COMPLETED;
-      update.confirmed_at = new Date();
-      // 商品标记已售
-      const product = await Product.findByPk(order.product_id, { transaction: t });
-      if (product) {
-        await product.update({ status: productService.PRODUCT_STATUS.SOLD }, { transaction: t });
-      }
-    } else {
-      update.status = ORDER_STATUS.TRADING; // 进入交易中
+    await order.update({
+      status: ORDER_STATUS.COMPLETED,
+      buyer_confirmed: 1,
+      seller_confirmed: 1,
+      confirmed_at: new Date()
+    }, { transaction: t });
+    // 商品标记已售
+    const product = await Product.findByPk(order.product_id, { transaction: t });
+    if (product) {
+      await product.update({ status: productService.PRODUCT_STATUS.SOLD }, { transaction: t });
     }
-
-    await order.update(update, { transaction: t });
     await t.commit();
 
-    // 完成后通知双方
-    if (update.status === ORDER_STATUS.COMPLETED) {
-      await notifService.createNotifications([
-        { userId: order.buyer_id, type: notifService.NOTIF_TYPE.ORDER, title: '交易已完成', content: `「${order.product_title}」的交易已完成,请及时评价。`, relatedId: order.id },
-        { userId: order.seller_id, type: notifService.NOTIF_TYPE.ORDER, title: '交易已完成', content: `「${order.product_title}」的交易已完成,请及时评价。`, relatedId: order.id }
-      ]);
-    }
+    // 完成后通知买卖双方可互相评价
+    await notifService.createNotifications([
+      { userId: order.buyer_id, type: notifService.NOTIF_TYPE.ORDER, title: '交易已完成', content: `「${order.product_title}」的交易已完成,请及时评价。`, relatedId: order.id },
+      { userId: order.seller_id, type: notifService.NOTIF_TYPE.ORDER, title: '交易已完成', content: `「${order.product_title}」的交易已完成,请及时评价。`, relatedId: order.id }
+    ]);
     return order;
   } catch (err) {
     await t.rollback();
@@ -280,6 +290,7 @@ async function completeOrder(userId, id) {
  * 评价(订单完成后,买卖双方互评)
  */
 async function reviewOrder(userId, id, { rating, content }) {
+  if (!validator.isPositiveId(id)) throw new ApiError('订单ID非法', 400);
   if (!rating || rating < 1 || rating > 5) throw new ApiError('评分为1-5星', 400);
   const order = await Order.findByPk(id);
   if (!order) throw new ApiError('订单不存在', 404);
@@ -303,13 +314,13 @@ async function reviewOrder(userId, id, { rating, content }) {
     content: content || null
   });
 
-  // 通知对方
+  // 通知对方(relatedId 指向订单,前端点击"新评价"通知要跳到订单详情查看评价)
   await notifService.createNotification({
     userId: toUserId,
     type: notifService.NOTIF_TYPE.REVIEW,
     title: '您收到一条新评价',
     content: `${isBuyer ? '买家' : '卖家'}对您做出了 ${rating} 星评价。`,
-    relatedId: review.id
+    relatedId: id
   });
 
   return review;

@@ -297,6 +297,21 @@ onMounted(loadDetail)
         <div class="desc-content">{{ detail.description || '卖家暂无描述' }}</div>
       </div>
 
+      <!-- 买家评价(买家对卖家售卖该商品的评价) -->
+      <div v-if="detail.reviews?.length" class="reviews-section card">
+        <h3 class="section-title">
+          <el-icon class="title-icon"><ChatLineRound /></el-icon>买家评价
+        </h3>
+        <div v-for="rev in detail.reviews" :key="rev.id" class="review-item">
+          <div class="review-head">
+            <span class="reviewer">{{ rev.reviewer?.nickname }}</span>
+            <el-rate :model-value="rev.rating" disabled />
+          </div>
+          <p class="review-content">{{ rev.content || '该用户未填写评价内容' }}</p>
+          <span class="review-time">{{ formatTime(rev.createdAt) }}</span>
+        </div>
+      </div>
+
       <!-- AI 相似推荐 -->
       <section v-if="relatedList.length" class="related-section">
         <div class="section-header">
@@ -498,6 +513,36 @@ onMounted(loadDetail)
   color: var(--text-regular);
   line-height: 1.8;
   white-space: pre-wrap;
+}
+.reviews-section {
+  margin-top: 24px;
+  padding: 24px;
+}
+.review-item {
+  padding: 14px 0;
+  border-bottom: 1px dashed var(--border-color);
+  &:last-child {
+    border-bottom: none;
+  }
+  .review-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    .reviewer {
+      font-weight: 500;
+      font-size: 14px;
+    }
+  }
+  .review-content {
+    margin: 8px 0;
+    color: var(--text-regular);
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .review-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
 }
 .related-section {
   margin-top: 32px;
