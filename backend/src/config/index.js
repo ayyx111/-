@@ -102,13 +102,17 @@ const config = {
     timeout: parseInt(process.env.LLM_TIMEOUT, 10) || 15000
   },
 
-  // 邮件 SMTP 配置(用于发送验证码)
-  // 常见邮箱 SMTP 参考:
-  //   QQ 邮箱:     smtp.qq.com:465(SSL)  授权码在 设置→账户→POP3/SMTP 中开启
-  //   163 邮箱:    smtp.163.com:465(SSL)  授权码在设置中开启 SMTP
-  //   Gmail:       smtp.gmail.com:465(SSL)  需使用 App Password
-  //   Outlook:     smtp.office365.com:587(TLS)
+  // 邮件配置(用于发送验证码)
+  // 方式 A(推荐): Resend HTTP API — 不受 SMTP 端口限制,Railway 可用
+  //   注册 resend.com 获取 API Key(re_ 开头),填入 RESEND_API_KEY 即可
+  //   发件人默认使用 onboarding@resend.dev(Resend 测试域名)
+  // 方式 B(本地开发): SMTP — 配置 SMTP_HOST/PORT/USER/PASS
+  //   常见邮箱: QQ smtp.qq.com:465 / 163 smtp.163.com:465 / Gmail smtp.gmail.com:465
   email: {
+    // Resend API
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    resendFrom: process.env.RESEND_FROM || 'onboarding@resend.dev',
+    // SMTP(本地开发备用)
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT, 10) || 465,
     secure: parseInt(process.env.SMTP_PORT, 10) === 465,

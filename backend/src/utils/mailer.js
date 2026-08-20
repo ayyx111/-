@@ -1,15 +1,14 @@
 /**
  * 邮件发送工具
- * 基于 nodemailer,使用 SMTP 协议发送验证码邮件
+ * 优先使用 Resend HTTP API(不受 SMTP 端口限制,Railway 可用)
+ * 备用: nodemailer SMTP(本地开发)
  */
 const nodemailer = require('nodemailer');
 const config = require('../config');
+const axios = require('axios');
 
 let transporter = null;
 
-/**
- * 懒加载 SMTP transporter(首次调用时创建)
- */
 function getTransporter() {
   if (transporter) return transporter;
 
@@ -34,33 +33,9 @@ function getTransporter() {
   return transporter;
 }
 
-/**
- * 是否已配置 SMTP(用于判断是否真实发送)
- */
-function isEmailConfigured() {
-  return !!(config.email.host && config.email.user && config.email.pass);
-}
-
-/**
- * 发送验证码邮件
- * @param {string} toEmail 收件人邮箱
- * @param {string} code 6位验证码
- * @returns {Promise<{sent: boolean, channel: string}>}
- */
-async function sendVerifyCodeEmail(toEmail, code) {
-  const t = getTransporter();
-
-  // SMTP 未配置 → 降级为控制台打印(开发模式)
-  if (!t) {
-    console.log(`[验证码][开发模式] 未配置 SMTP,验证码 ${code} 未发送至 ${toEmail}`);
-    return { sent: false, channel: 'console' };
-  }
-
-  const fromEmail = config.email.from || config.email.user;
-  const fromName = config.email.fromName || '校园咸鱼';
+function buildHtml(code) {
   const expireMinutes = Math.ceil(300 / 60);
-
-  const html = `
+  return `
   <div style="max-width:480px;margin:0 auto;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif">
     <div style="background:linear-gradient(135deg,#4CAF50 0%,#45a049 100%);padding:24px 32px;border-radius:12px 12px 0 0">
       <h1 style="color:#fff;font-size:20px;margin:0;font-weight:600">校园咸鱼</h1>
@@ -78,23 +53,73 @@ async function sendVerifyCodeEmail(toEmail, code) {
       <p style="color:#bbb;font-size:12px;margin:16px 0 0">此邮件由系统自动发送,请勿回复。</p>
     </div>
   </div>`;
+}
 
-  try {
-    await t.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
-      to: toEmail,
-      subject: '【校园咸鱼】注册验证码',
-      html
-    });
-    console.log(`[验证码] 邮件已发送至 ${toEmail}`);
-    return { sent: true, channel: 'email' };
-  } catch (err) {
-    console.error(`[验证码] SMTP 发送失败: ${err.message}`);
-    return { sent: false, channel: 'error', error: err.message };
+/**
+ * 通过 Resend HTTP API 发送邮件
+ */
+async function sendViaResend(toEmail, subject, html) {
+  await axios.post('https://api.resend.com/emails', {
+    from: `校园咸鱼 <${config.email.resendFrom}>`,
+    to: [toEmail],
+    subject,
+    html
+  }, {
+    headers: {
+      'Authorization': `Bearer ${config.email.resendApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    timeout: 15000
+  });
+}
+
+/**
+ * 发送验证码邮件
+ * @param {string} toEmail 收件人邮箱
+ * @param {string} code 6位验证码
+ * @returns {Promise<{sent: boolean, channel: string}>}
+ */
+async function sendVerifyCodeEmail(toEmail, code) {
+  const subject = '【校园咸鱼】注册验证码';
+  const html = buildHtml(code);
+
+  // 方式 A: Resend API(优先,Railway 生产用)
+  if (config.email.resendApiKey) {
+    try {
+      await sendViaResend(toEmail, subject, html);
+      console.log(`[验证码] Resend 邮件已发送至 ${toEmail}`);
+      return { sent: true, channel: 'resend' };
+    } catch (err) {
+      console.error(`[验证码] Resend 发送失败: ${err.message}`);
+      return { sent: false, channel: 'error', error: err.message };
+    }
   }
+
+  // 方式 B: SMTP(本地开发备用)
+  const t = getTransporter();
+  if (t) {
+    const fromEmail = config.email.from || config.email.user;
+    const fromName = config.email.fromName || '校园咸鱼';
+    try {
+      await t.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: toEmail,
+        subject,
+        html
+      });
+      console.log(`[验证码] SMTP 邮件已发送至 ${toEmail}`);
+      return { sent: true, channel: 'smtp' };
+    } catch (err) {
+      console.error(`[验证码] SMTP 发送失败: ${err.message}`);
+      return { sent: false, channel: 'error', error: err.message };
+    }
+  }
+
+  // 未配置任何邮件服务 → 降级
+  console.log(`[验证码][开发模式] 未配置邮件服务,验证码 ${code} 未发送至 ${toEmail}`);
+  return { sent: false, channel: 'console' };
 }
 
 module.exports = {
-  isEmailConfigured,
   sendVerifyCodeEmail
 };
