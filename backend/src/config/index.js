@@ -103,12 +103,16 @@ const config = {
   },
 
   // 邮件配置(用于发送验证码)
-  // 优先级: Brevo > Resend > SMTP
-  // 方式 A(推荐): Brevo HTTP API — 免费300封/天,可发到任意邮箱,Railway 可用
-  //   注册 brevo.com → 获取 API Key → 验证发件人邮箱
-  // 方式 B(备用): Resend HTTP API — 免费版仅能发到注册邮箱
-  // 方式 C(本地开发): SMTP — QQ/163 等
+  // 优先级: SendGrid > Brevo > Resend > SMTP
+  // 方式 A(推荐): SendGrid HTTP API — 免费100封/天,可发到任意邮箱
+  //   注册 sendgrid.com → 获取 API Key → 验证发件人邮箱
+  // 方式 B(备用): Brevo HTTP API — 免费300封/天
+  // 方式 C(备用): Resend HTTP API — 免费版仅能发到注册邮箱
+  // 方式 D(本地开发): SMTP — QQ/163 等
   email: {
+    // SendGrid API
+    sendgridApiKey: process.env.SENDGRID_API_KEY || '',
+    sendgridFrom: process.env.SENDGRID_FROM || '',
     // Brevo API
     brevoApiKey: process.env.BREVO_API_KEY || '',
     brevoFrom: process.env.BREVO_FROM || '',

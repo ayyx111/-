@@ -1,9 +1,10 @@
 /**
  * 邮件发送工具
- * 优先级: Brevo HTTP API > Resend HTTP API > SMTP > 降级
- * - Brevo: 免费300封/天,可发送到任意邮箱,Railway 可用
- * - Resend: 免费版仅能发到注册邮箱(备用)
- * - SMTP: 本地开发用(QQ/163 等)
+ * 优先级: SendGrid > Brevo > Resend > SMTP > 降级
+ * - SendGrid: 免费100封/天,可发到任意邮箱,Railway 可用
+ * - Brevo: 免费300封/天(备用)
+ * - Resend: 免费版仅能发到注册邮箱
+ * - SMTP: 本地开发用
  */
 const nodemailer = require('nodemailer');
 const config = require('../config');
@@ -58,8 +59,26 @@ function buildHtml(code) {
 }
 
 /**
- * 通过 Brevo HTTP API 发送邮件
- * Brevo 免费 300 封/天,可发送到任意邮箱
+ * 通过 SendGrid HTTP API 发送邮件
+ * 免费 100 封/天,可发送到任意邮箱
+ */
+async function sendViaSendGrid(toEmail, subject, html) {
+  await axios.post('https://api.sendgrid.com/v3/mail/send', {
+    personalizations: [{ to: [{ email: toEmail }] }],
+    from: { email: config.email.sendgridFrom, name: config.email.fromName || '校园咸鱼' },
+    subject,
+    content: [{ type: 'text/html', value: html }]
+  }, {
+    headers: {
+      'Authorization': `Bearer ${config.email.sendgridApiKey}`,
+      'Content-Type': 'application/json'
+    },
+    timeout: 15000
+  });
+}
+
+/**
+ * 通过 Brevo HTTP API 发送邮件(备用)
  */
 async function sendViaBrevo(toEmail, subject, html) {
   await axios.post('https://api.brevo.com/v3/smtp/email', {
@@ -107,7 +126,18 @@ async function sendVerifyCodeEmail(toEmail, code) {
   const subject = '【校园咸鱼】注册验证码';
   const html = buildHtml(code);
 
-  // 方式 A: Brevo API(最优先,可发到任意邮箱)
+  // 方式 A: SendGrid API(最优先,可发到任意邮箱)
+  if (config.email.sendgridApiKey) {
+    try {
+      await sendViaSendGrid(toEmail, subject, html);
+      console.log(`[验证码] SendGrid 邮件已发送至 ${toEmail}`);
+      return { sent: true, channel: 'sendgrid' };
+    } catch (err) {
+      console.error(`[验证码] SendGrid 发送失败: ${err.message}`);
+    }
+  }
+
+  // 方式 B: Brevo API(备用)
   if (config.email.brevoApiKey) {
     try {
       await sendViaBrevo(toEmail, subject, html);
@@ -118,7 +148,7 @@ async function sendVerifyCodeEmail(toEmail, code) {
     }
   }
 
-  // 方式 B: Resend API(备用,免费版仅能发到注册邮箱)
+  // 方式 C: Resend API(备用)
   if (config.email.resendApiKey) {
     try {
       await sendViaResend(toEmail, subject, html);
@@ -129,7 +159,7 @@ async function sendVerifyCodeEmail(toEmail, code) {
     }
   }
 
-  // 方式 C: SMTP(本地开发用)
+  // 方式 D: SMTP(本地开发用)
   const t = getTransporter();
   if (t) {
     const fromEmail = config.email.from || config.email.user;
