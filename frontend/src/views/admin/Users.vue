@@ -85,6 +85,7 @@ onMounted(loadData)
           </div>
         </template>
       </el-table-column>
+      <el-table-column label="邮箱" prop="email" min-width="180" show-overflow-tooltip />
       <el-table-column label="学校" prop="school" min-width="140" show-overflow-tooltip />
       <el-table-column label="信用分" prop="creditScore" width="100" align="center" />
       <el-table-column label="认证" width="100" align="center">

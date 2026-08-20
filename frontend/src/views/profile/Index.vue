@@ -57,6 +57,9 @@ function go(path) {
           <div class="user-school">
             <el-icon><Location /></el-icon>{{ userInfo?.school || '未填写学校' }}
           </div>
+          <div class="user-email">
+            <el-icon><Message /></el-icon>{{ userInfo?.email || '未绑定邮箱' }}
+          </div>
           <div class="user-stats">
             <div class="stat">
               <span class="num">{{ userInfo?.productCount || 0 }}</span>
@@ -117,13 +120,13 @@ function go(path) {
   font-weight: 600;
   margin-bottom: 8px;
 }
-.user-school {
+.user-school, .user-email {
   display: flex;
   align-items: center;
   gap: 4px;
   color: var(--text-secondary);
   font-size: 14px;
-  margin-bottom: 14px;
+  margin-bottom: 6px;
 }
 .user-stats {
   display: flex;

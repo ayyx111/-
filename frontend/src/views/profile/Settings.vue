@@ -17,12 +17,13 @@ const { userInfo } = storeToRefs(userStore)
 
 const activeTab = ref('profile')
 const profileLoading = ref(false)
+const avatarUploading = ref(false)
 const pwdLoading = ref(false)
 
 const profileForm = reactive({
   nickname: '',
   bio: '',
-  avatar: null
+  avatar: ''
 })
 const avatarUrl = ref('')
 
@@ -60,9 +61,20 @@ const pwdRules = {
 const profileFormRef = ref()
 const pwdFormRef = ref()
 
-function handleAvatarChange(file) {
-  profileForm.avatar = file.raw
-  avatarUrl.value = URL.createObjectURL(file.raw)
+async function handleAvatarChange(file) {
+  avatarUploading.value = true
+  try {
+    const formData = new FormData()
+    formData.append('file', file.raw)
+    const res = await userApi.uploadImage(formData)
+    profileForm.avatar = res.url
+    avatarUrl.value = res.url
+    ElMessage.success('头像上传成功')
+  } catch (e) {
+    ElMessage.error('头像上传失败')
+  } finally {
+    avatarUploading.value = false
+  }
 }
 
 function beforeAvatarUpload(file) {
@@ -84,11 +96,14 @@ async function saveProfile() {
     if (!valid) return
     profileLoading.value = true
     try {
-      const formData = new FormData()
-      formData.append('nickname', profileForm.nickname)
-      formData.append('bio', profileForm.bio)
-      if (profileForm.avatar) formData.append('avatar', profileForm.avatar)
-      const res = await userApi.updateProfile(formData)
+      const data = {
+        nickname: profileForm.nickname,
+        bio: profileForm.bio
+      }
+      if (profileForm.avatar) {
+        data.avatar = profileForm.avatar
+      }
+      const res = await userApi.updateProfile(data)
       userStore.setUserInfo(res)
       ElMessage.success('资料已更新')
     } catch (e) {
@@ -159,7 +174,7 @@ onMounted(async () => {
                   <el-avatar :size="80" :src="avatarUrl">
                     {{ profileForm.nickname?.[0] || 'U' }}
                   </el-avatar>
-                  <div class="avatar-tip">点击修改头像</div>
+                  <div class="avatar-tip">{{ avatarUploading ? '上传中...' : '点击修改头像' }}</div>
                 </el-upload>
               </el-form-item>
               <el-form-item label="昵称" prop="nickname">

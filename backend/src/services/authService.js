@@ -94,7 +94,7 @@ async function checkVerifyCode(account, code) {
  */
 async function register({ username, password, email, studentId, code }) {
   // 基础校验
-  if (!validator.isUsername(username)) throw new ApiError('用户名需4-20位字母/数字/下划线', 400);
+  if (!validator.isUsername(username)) throw new ApiError('用户名需3-20位字母/数字/下划线', 400);
   if (!validator.isPassword(password)) throw new ApiError('密码6-32位,需包含字母和数字', 400);
   if (!validator.isEmail(email)) throw new ApiError('邮箱格式不正确', 400);
   if (!validator.isStudentId(studentId)) throw new ApiError('学号格式不正确(4-20位字母数字)', 400);

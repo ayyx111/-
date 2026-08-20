@@ -5,10 +5,10 @@ const crypto = require('crypto');
 const validator = require('validator');
 
 /**
- * 校验用户名(4-20位,字母/数字/下划线)
+ * 校验用户名(3-20位,字母/数字/下划线)
  */
 function isUsername(v) {
-  return typeof v === 'string' && /^[a-zA-Z0-9_]{4,20}$/.test(v);
+  return typeof v === 'string' && /^[a-zA-Z0-9_]{3,20}$/.test(v);
 }
 
 /**

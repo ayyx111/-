@@ -33,7 +33,7 @@ const validateConfirm = (rule, value, callback) => {
 const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 3, max: 20, message: '用户名 3-20 位', trigger: 'blur' }
+    { min: 3, max: 20, message: '用户名 3-20 位,支持字母/数字/下划线', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -55,6 +55,10 @@ const rules = {
   ],
   email: [
     { type: 'email', message: '邮箱格式不正确', trigger: 'blur' }
+  ],
+  studentId: [
+    { required: true, message: '请输入学号', trigger: 'blur' },
+    { pattern: /^[a-zA-Z0-9]{4,20}$/, message: '学号为 4-20 位字母或数字', trigger: 'blur' }
   ],
   code: [{ required: true, message: '请输入验证码', trigger: 'blur' }]
 }
@@ -144,7 +148,7 @@ async function handleRegister() {
           label-position="top"
         >
           <el-form-item prop="username" label="用户名">
-            <el-input v-model="registerForm.username" placeholder="3-20位用户名" :prefix-icon="'User'" />
+            <el-input v-model="registerForm.username" placeholder="3-20位,支持字母/数字/下划线" :prefix-icon="'User'" />
           </el-form-item>
           <el-form-item prop="password" label="密码">
             <el-input
@@ -168,7 +172,7 @@ async function handleRegister() {
             <el-input v-model="registerForm.email" placeholder="请输入邮箱(用于接收验证码)" :prefix-icon="'Message'" />
           </el-form-item>
           <el-form-item prop="studentId" label="学号">
-            <el-input v-model="registerForm.studentId" placeholder="请输入学号(选填)" :prefix-icon="'Postcard'" />
+            <el-input v-model="registerForm.studentId" placeholder="请输入学号(4-20位,字母或数字)" :prefix-icon="'Postcard'" />
           </el-form-item>
           <el-form-item prop="code" label="验证码">
             <div class="code-row">

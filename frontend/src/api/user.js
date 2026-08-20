@@ -5,8 +5,11 @@ export const userApi = {
   // 获取当前用户信息
   getProfile: () => http.get('/user/profile'),
 
-  // 更新个人资料
-  updateProfile: (formData) => http.upload('/user/profile', formData, { method: 'put' }),
+  // 更新个人资料(接收 JSON 对象)
+  updateProfile: (data) => http.put('/user/profile', data),
+
+  // 上传头像
+  uploadImage: (formData) => http.upload('/upload/image', formData),
 
   // 修改密码
   updatePassword: (data) => http.put('/user/password', data),
