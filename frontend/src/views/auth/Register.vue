@@ -72,18 +72,14 @@ async function sendCode() {
   }
   codeLoading.value = true
   try {
-    console.log('[sendCode] 调用 API: /auth/send-code')
     const data = await authApi.sendCode({ target: registerForm.email, type: 'register' })
-    console.log('[sendCode] API 返回:', JSON.stringify(data))
-    const code = data?.code
-    if (code) {
-      ElMessage({ message: `验证码: ${code}（开发模式,未实际发送邮件）`, type: 'success', duration: 5000 })
+    if (data?.code) {
+      ElMessage({ message: `验证码: ${data.code}（开发模式,未配置SMTP）`, type: 'success', duration: 5000 })
     } else {
-      ElMessage({ message: '验证码已发送,请查收邮件', type: 'success' })
+      ElMessage({ message: '验证码已发送至邮箱,请查收', type: 'success', duration: 5000 })
     }
     startCountdown()
   } catch (e) {
-    console.error('[sendCode] 失败:', e?.message, e?.stack, e?.response?.data)
     const msg = e?.response?.data?.message || e?.message || '获取验证码失败'
     ElMessage({ message: msg, type: 'error' })
   } finally {

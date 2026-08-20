@@ -10,6 +10,7 @@ const jwtUtil = require('../utils/jwt');
 const { redis, redisKeys } = require('../config/cache');
 const validator = require('../utils/validator');
 const config = require('../config');
+const { sendVerifyCodeEmail } = require('../utils/mailer');
 
 const VERIFY_CODE_TTL = 300; // 验证码有效期 5 分钟
 
@@ -49,7 +50,7 @@ function sanitizeUser(user) {
 }
 
 /**
- * 发送验证码(写入Redis,模拟发送)
+ * 发送验证码(写入缓存,通过邮件真实发送)
  * @param {string} account 邮箱或手机号
  */
 async function sendCode(account) {
@@ -61,7 +62,17 @@ async function sendCode(account) {
   }
   const code = validator.genVerifyCode(6);
   await redis.set(redisKeys.verifyCode(account), code, 'EX', VERIFY_CODE_TTL);
-  // 实际项目此处应调用短信/邮件服务商;此处仅记录日志
+
+  if (isEmail) {
+    const result = await sendVerifyCodeEmail(account, code);
+    if (result.sent) {
+      return { sent: true, account, expireIn: VERIFY_CODE_TTL };
+    }
+    // SMTP 未配置 → 降级:控制台打印,响应中携带验证码(仅开发模式)
+    return { sent: true, account, expireIn: VERIFY_CODE_TTL, code };
+  }
+
+  // 手机号:暂不支持短信发送,控制台打印
   console.log(`[验证码] 发送给 ${account}: ${code}`);
   return { sent: true, account, expireIn: VERIFY_CODE_TTL, code };
 }

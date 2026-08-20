@@ -100,6 +100,22 @@ const config = {
     model: process.env.LLM_MODEL || 'glm-4-flash',
     temperature: parseFloat(process.env.LLM_TEMPERATURE || '0.3'),
     timeout: parseInt(process.env.LLM_TIMEOUT, 10) || 15000
+  },
+
+  // 邮件 SMTP 配置(用于发送验证码)
+  // 常见邮箱 SMTP 参考:
+  //   QQ 邮箱:     smtp.qq.com:465(SSL)  授权码在 设置→账户→POP3/SMTP 中开启
+  //   163 邮箱:    smtp.163.com:465(SSL)  授权码在设置中开启 SMTP
+  //   Gmail:       smtp.gmail.com:465(SSL)  需使用 App Password
+  //   Outlook:     smtp.office365.com:587(TLS)
+  email: {
+    host: process.env.SMTP_HOST || '',
+    port: parseInt(process.env.SMTP_PORT, 10) || 465,
+    secure: parseInt(process.env.SMTP_PORT, 10) === 465,
+    user: process.env.SMTP_USER || '',
+    pass: process.env.SMTP_PASS || '',
+    from: process.env.SMTP_FROM || '',
+    fromName: process.env.SMTP_FROM_NAME || '校园咸鱼'
   }
 };
 
