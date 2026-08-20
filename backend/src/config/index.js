@@ -103,12 +103,15 @@ const config = {
   },
 
   // 邮件配置(用于发送验证码)
-  // 方式 A(推荐): Resend HTTP API — 不受 SMTP 端口限制,Railway 可用
-  //   注册 resend.com 获取 API Key(re_ 开头),填入 RESEND_API_KEY 即可
-  //   发件人默认使用 onboarding@resend.dev(Resend 测试域名)
-  // 方式 B(本地开发): SMTP — 配置 SMTP_HOST/PORT/USER/PASS
-  //   常见邮箱: QQ smtp.qq.com:465 / 163 smtp.163.com:465 / Gmail smtp.gmail.com:465
+  // 优先级: Brevo > Resend > SMTP
+  // 方式 A(推荐): Brevo HTTP API — 免费300封/天,可发到任意邮箱,Railway 可用
+  //   注册 brevo.com → 获取 API Key → 验证发件人邮箱
+  // 方式 B(备用): Resend HTTP API — 免费版仅能发到注册邮箱
+  // 方式 C(本地开发): SMTP — QQ/163 等
   email: {
+    // Brevo API
+    brevoApiKey: process.env.BREVO_API_KEY || '',
+    brevoFrom: process.env.BREVO_FROM || '',
     // Resend API
     resendApiKey: process.env.RESEND_API_KEY || '',
     resendFrom: process.env.RESEND_FROM || 'onboarding@resend.dev',

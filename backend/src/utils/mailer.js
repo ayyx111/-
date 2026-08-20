@@ -1,7 +1,9 @@
 /**
  * 邮件发送工具
- * 优先使用 Resend HTTP API(不受 SMTP 端口限制,Railway 可用)
- * 备用: nodemailer SMTP(本地开发)
+ * 优先级: Brevo HTTP API > Resend HTTP API > SMTP > 降级
+ * - Brevo: 免费300封/天,可发送到任意邮箱,Railway 可用
+ * - Resend: 免费版仅能发到注册邮箱(备用)
+ * - SMTP: 本地开发用(QQ/163 等)
  */
 const nodemailer = require('nodemailer');
 const config = require('../config');
@@ -56,7 +58,29 @@ function buildHtml(code) {
 }
 
 /**
- * 通过 Resend HTTP API 发送邮件
+ * 通过 Brevo HTTP API 发送邮件
+ * Brevo 免费 300 封/天,可发送到任意邮箱
+ */
+async function sendViaBrevo(toEmail, subject, html) {
+  await axios.post('https://api.brevo.com/v3/smtp/email', {
+    sender: {
+      email: config.email.brevoFrom,
+      name: config.email.fromName || '校园咸鱼'
+    },
+    to: [{ email: toEmail }],
+    subject,
+    htmlContent: html
+  }, {
+    headers: {
+      'api-key': config.email.brevoApiKey,
+      'Content-Type': 'application/json'
+    },
+    timeout: 15000
+  });
+}
+
+/**
+ * 通过 Resend HTTP API 发送邮件(备用)
  */
 async function sendViaResend(toEmail, subject, html) {
   await axios.post('https://api.resend.com/emails', {
@@ -83,7 +107,18 @@ async function sendVerifyCodeEmail(toEmail, code) {
   const subject = '【校园咸鱼】注册验证码';
   const html = buildHtml(code);
 
-  // 方式 A: Resend API(优先,Railway 生产用)
+  // 方式 A: Brevo API(最优先,可发到任意邮箱)
+  if (config.email.brevoApiKey) {
+    try {
+      await sendViaBrevo(toEmail, subject, html);
+      console.log(`[验证码] Brevo 邮件已发送至 ${toEmail}`);
+      return { sent: true, channel: 'brevo' };
+    } catch (err) {
+      console.error(`[验证码] Brevo 发送失败: ${err.message}`);
+    }
+  }
+
+  // 方式 B: Resend API(备用,免费版仅能发到注册邮箱)
   if (config.email.resendApiKey) {
     try {
       await sendViaResend(toEmail, subject, html);
@@ -91,11 +126,10 @@ async function sendVerifyCodeEmail(toEmail, code) {
       return { sent: true, channel: 'resend' };
     } catch (err) {
       console.error(`[验证码] Resend 发送失败: ${err.message}`);
-      return { sent: false, channel: 'error', error: err.message };
     }
   }
 
-  // 方式 B: SMTP(本地开发备用)
+  // 方式 C: SMTP(本地开发用)
   const t = getTransporter();
   if (t) {
     const fromEmail = config.email.from || config.email.user;
@@ -111,12 +145,11 @@ async function sendVerifyCodeEmail(toEmail, code) {
       return { sent: true, channel: 'smtp' };
     } catch (err) {
       console.error(`[验证码] SMTP 发送失败: ${err.message}`);
-      return { sent: false, channel: 'error', error: err.message };
     }
   }
 
-  // 未配置任何邮件服务 → 降级
-  console.log(`[验证码][开发模式] 未配置邮件服务,验证码 ${code} 未发送至 ${toEmail}`);
+  // 全部失败 → 降级
+  console.log(`[验证码][开发模式] 邮件发送全部失败,验证码 ${code} 未发送至 ${toEmail}`);
   return { sent: false, channel: 'console' };
 }
 
