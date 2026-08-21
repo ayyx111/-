@@ -13,7 +13,8 @@ const userStore = useUserStore()
 const menus = [
   { index: '/admin/overview', title: '总览', icon: 'DataAnalysis', badge: null },
   { index: '/admin/audit', title: '商品审核', icon: 'Goods', badge: null },
-  { index: '/admin/verify', title: '校园认证审核', icon: 'Medal', badge: null },
+  { index: '/admin/verify', title: '校园认证管理', icon: 'Medal', badge: null },
+  { index: '/admin/school-change', title: '学校修改审核', icon: 'School', badge: null },
   { index: '/admin/users', title: '用户管理', icon: 'UserFilled', badge: null },
   { index: '/admin/reports', title: '举报处理', icon: 'Warning', badge: null },
   { index: '/admin/statistics', title: '数据统计', icon: 'TrendCharts', badge: null }

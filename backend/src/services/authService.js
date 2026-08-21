@@ -214,19 +214,21 @@ async function resetPassword({ account, code, newPassword }) {
 }
 
 /**
- * 校园认证(填写学校/学院/入学年份即可,学生证照片可选)
+ * 校园认证(首次认证直接通过,修改需审核)
  */
 async function verifyCampus(userId, { studentIdImage, school, college, enrollmentYear, studentId }) {
   const user = await User.findByPk(userId);
   if (!user) throw new ApiError('用户不存在', 404);
-  if (user.is_verified === 1) throw new ApiError('您已通过校园认证', 400);
+  if (user.is_verified === 1) throw new ApiError('您已通过校园认证,如需修改请提交学校修改申请', 400);
 
+  // 首次认证直接通过
   await user.update({
     school: school || user.school,
     college: college || user.college,
     enrollment_year: enrollmentYear || user.enrollment_year,
     student_id: studentId || user.student_id,
-    is_verified: 2 // 待审核
+    campus_proof: studentIdImage || user.campus_proof,
+    is_verified: 1 // 首次认证直接通过
   });
   return sanitizeUser(user);
 }

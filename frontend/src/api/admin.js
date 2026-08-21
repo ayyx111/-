@@ -33,7 +33,13 @@ export const adminApi = {
   handleReport: (id, data) => http.put(`/admin/reports/${id}`, data),
 
   // 数据统计
-  getStats: (params) => http.get('/admin/stats', params)
+  getStats: (params) => http.get('/admin/stats', params),
+
+  // 学校修改申请:列表
+  getSchoolChangeRequests: (params) => http.get('/admin/school-change-requests', params),
+
+  // 学校修改申请:审核
+  reviewSchoolChangeRequest: (id, data) => http.put(`/admin/school-change-requests/${id}/review`, data)
 }
 
 export default adminApi

@@ -152,6 +152,12 @@ const routes = [
         meta: { title: '校园认证审核' }
       },
       {
+        path: 'school-change',
+        name: 'AdminSchoolChange',
+        component: () => import('@/views/admin/SchoolChangeAudit.vue'),
+        meta: { title: '学校修改审核' }
+      },
+      {
         path: 'reports',
         name: 'AdminReports',
         component: () => import('@/views/admin/Reports.vue'),

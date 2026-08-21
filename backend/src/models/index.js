@@ -18,6 +18,7 @@ const Report = require('./Report');
 const Notification = require('./Notification');
 const UserBrowseHistory = require('./UserBrowseHistory');
 const AdminLog = require('./AdminLog');
+const SchoolChangeRequest = require('./SchoolChangeRequest');
 
 // ============ 关联关系 ============
 
@@ -88,6 +89,11 @@ UserBrowseHistory.belongsTo(Product, { foreignKey: 'product_id', as: 'product' }
 User.hasMany(AdminLog, { foreignKey: 'admin_id', as: 'adminLogs' });
 AdminLog.belongsTo(User, { foreignKey: 'admin_id', as: 'admin' });
 
+// 用户 ↔ 学校修改申请 (1:N)
+User.hasMany(SchoolChangeRequest, { foreignKey: 'user_id', as: 'schoolChangeRequests' });
+SchoolChangeRequest.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
+SchoolChangeRequest.belongsTo(User, { foreignKey: 'reviewer_id', as: 'reviewer' });
+
 module.exports = {
   sequelize,
   User,
@@ -101,5 +107,6 @@ module.exports = {
   Report,
   Notification,
   UserBrowseHistory,
-  AdminLog
+  AdminLog,
+  SchoolChangeRequest
 };

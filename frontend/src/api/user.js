@@ -17,6 +17,14 @@ export const userApi = {
   // 修改邮箱
   changeEmail: (data) => http.put('/user/email', data),
 
+  // 获取用户公开信息(无需登录)
+  getUserById: (id) => http.get(`/user/${id}`),
+
+  // 学校修改申请
+  submitSchoolChange: (data) => http.post('/school-change-requests', data),
+  getMySchoolChangeRequests: (params) => http.get('/school-change-requests/mine', params),
+  checkPendingSchoolChange: () => http.get('/school-change-requests/pending'),
+
   // 提交举报
   report: (data) => http.post('/reports', data)
 }

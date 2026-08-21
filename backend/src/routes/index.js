@@ -16,6 +16,8 @@ router.use('/', require('./message')); // /messages, /messages/conversations
 router.use('/', require('./favorite')); // /favorites
 router.use('/', require('./notification')); // /notifications
 router.use('/reports', require('./report'));
+// 学校修改申请
+router.use('/', require('./schoolChange'));
 // 文件上传:必须在 admin 之前——admin 挂在 '/' 且带全局 requireAdmin,
 // 放在后面会导致非管理员调用 /upload/image 被 403 拦截(学生无法传图、无法发商品)
 router.use('/upload', require('./upload'));

@@ -2,7 +2,7 @@
 // 登录页:居中卡片 + 账号密码 + 记住我 + 注册链接
 import { ref, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -39,6 +39,17 @@ async function handleLogin() {
       // 拉取完整用户信息
       await userStore.getUserInfo()
       ElMessage.success('登录成功')
+
+      // 检查是否已完成校园认证
+      const isVerified = userStore.userInfo?.isVerified
+      const skipAuthGuide = localStorage.getItem('skipAuthGuide_' + userStore.userInfo?.id)
+      
+      // 未认证且没有跳过过时,显示引导弹窗
+      if (isVerified === 0 && !skipAuthGuide) {
+        showAuthGuide()
+        return
+      }
+
       // 登录后跳回来源页
       const redirect = route.query.redirect || '/'
       router.push(redirect)
@@ -47,6 +58,27 @@ async function handleLogin() {
     } finally {
       loading.value = false
     }
+  })
+}
+
+// 显示校园认证引导弹窗
+function showAuthGuide() {
+  ElMessageBox.confirm(
+    '校园认证是使用交易功能的前提。完成认证后即可发布商品、购买物品等。\n\n是否现在前往认证?',
+    '完成校园认证',
+    {
+      confirmButtonText: '立即认证',
+      cancelButtonText: '稍后再说',
+      type: 'info',
+      closeOnClickModal: false
+    }
+  ).then(() => {
+    // 跳转到认证页面
+    router.push('/profile/verify')
+  }).catch(() => {
+    // 用户选择稍后再说,跳转到首页
+    localStorage.setItem('skipAuthGuide_' + userStore.userInfo?.id, '1')
+    router.push('/')
   })
 }
 </script>

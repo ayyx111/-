@@ -1,7 +1,7 @@
 <script setup>
 // 设置页:编辑个人资料 + 修改密码
-import { ref, reactive, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, reactive, computed, onMounted } from 'vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { storeToRefs } from 'pinia'
 import userApi from '@/api/user'
 import authApi from '@/api/auth'
@@ -13,7 +13,7 @@ import { resolveImageUrl } from '@/utils/format'
 const router = useRouter()
 const userStore = useUserStore()
 const messageStore = useMessageStore()
-const { userInfo } = storeToRefs(userStore)
+const { userInfo, isVerified: storeIsVerified, verifyStatus } = storeToRefs(userStore)
 
 const activeTab = ref('profile')
 const profileLoading = ref(false)
@@ -24,10 +24,34 @@ const codeLoading = ref(false)
 const codeDisabled = ref(false)
 const countdown = ref(0)
 
+// 学校修改申请相关
+const showSchoolChangeDialog = ref(false)
+const schoolChangeLoading = ref(false)
+const pendingRequest = ref(null)
+const schoolChangeForm = reactive({
+  newSchool: '',
+  newCollege: '',
+  reason: ''
+})
+
+// 判断是否已完成认证(状态为1或2都算已提交认证)
+const isVerified = computed(() => storeIsVerified.value)
+// 判断是否是已通过认证(状态为1)
+const isVerifiedPassed = computed(() => verifyStatus.value === 1)
+const schoolStatusTag = computed(() => {
+  if (pendingRequest.value?.status === 0) return { text: '审核中', type: 'warning' }
+  if (verifyStatus.value === 0) return { text: '未认证', type: 'info' }
+  if (verifyStatus.value === 2) return { text: '认证审核中', type: 'warning' }
+  if (verifyStatus.value === 3) return { text: '认证未通过', type: 'danger' }
+  return { text: '已认证', type: 'success' }
+})
+
 const profileForm = reactive({
   nickname: '',
   bio: '',
-  avatar: ''
+  avatar: '',
+  school: '',
+  college: ''
 })
 const avatarUrl = ref('')
 
@@ -78,6 +102,53 @@ const pwdRules = {
 
 const profileFormRef = ref()
 const pwdFormRef = ref()
+
+async function loadPendingRequest() {
+  try {
+    const res = await userApi.checkPendingSchoolChange()
+    pendingRequest.value = res.hasPending ? res.request : null
+  } catch (e) {
+    pendingRequest.value = null
+  }
+}
+
+function goToVerify() {
+  router.push('/profile/verify')
+}
+
+function openSchoolChangeDialog() {
+  schoolChangeForm.newSchool = userInfo.value?.school || ''
+  schoolChangeForm.newCollege = userInfo.value?.college || ''
+  schoolChangeForm.reason = ''
+  showSchoolChangeDialog.value = true
+}
+
+async function submitSchoolChange() {
+  if (!schoolChangeForm.newSchool.trim()) {
+    ElMessage.warning('请输入新学校名称')
+    return
+  }
+  if (schoolChangeForm.newSchool === userInfo.value?.school && 
+      schoolChangeForm.newCollege === userInfo.value?.college) {
+    ElMessage.warning('新信息与当前信息相同')
+    return
+  }
+  schoolChangeLoading.value = true
+  try {
+    await userApi.submitSchoolChange({
+      newSchool: schoolChangeForm.newSchool.trim(),
+      newCollege: schoolChangeForm.newCollege.trim() || null,
+      reason: schoolChangeForm.reason.trim()
+    })
+    ElMessage.success('申请已提交,等待管理员审核')
+    showSchoolChangeDialog.value = false
+    await loadPendingRequest()
+  } catch (e) {
+    // error handled by interceptor
+  } finally {
+    schoolChangeLoading.value = false
+  }
+}
 
 async function handleAvatarChange(file) {
   avatarUploading.value = true
@@ -224,7 +295,10 @@ onMounted(async () => {
   }
   profileForm.nickname = userInfo.value?.nickname || ''
   profileForm.bio = userInfo.value?.bio || ''
+  profileForm.school = userInfo.value?.school || ''
+  profileForm.college = userInfo.value?.college || ''
   avatarUrl.value = resolveImageUrl(userInfo.value?.avatar)
+  await loadPendingRequest()
 })
 </script>
 
@@ -258,8 +332,75 @@ onMounted(async () => {
               <el-form-item label="个性签名">
                 <el-input v-model="profileForm.bio" type="textarea" :rows="3" placeholder="介绍一下自己吧" maxlength="100" show-word-limit />
               </el-form-item>
-              <el-form-item label="学校">
-                <el-input :model-value="userInfo?.school || '未填写'" disabled />
+              <el-form-item label="学校认证">
+                <div class="school-auth-section">
+                  <div class="school-info-row">
+                    <span class="school-value">
+                      {{ userInfo?.school || '未认证' }}
+                      <span v-if="userInfo?.college" class="college-sep">·</span>
+                      <span v-if="userInfo?.college">{{ userInfo.college }}</span>
+                    </span>
+                    <el-tag :type="schoolStatusTag.type" size="small" effect="light">
+                      {{ schoolStatusTag.text }}
+                    </el-tag>
+                  </div>
+                  
+                  <!-- 未认证状态(需要完成认证) -->
+                  <div v-if="verifyStatus === 0" class="school-action-row">
+                    <el-button type="primary" size="small" @click="goToVerify">
+                      完成学校认证
+                    </el-button>
+                    <span class="action-tip">完成认证后可发布商品、进行交易</span>
+                  </div>
+
+                  <!-- 认证未通过状态(需要重新提交) -->
+                  <div v-else-if="verifyStatus === 3" class="school-action-row">
+                    <el-button type="primary" size="small" @click="goToVerify">
+                      重新提交认证
+                    </el-button>
+                    <span class="action-tip">您的认证未通过,请修改后重新提交</span>
+                  </div>
+                  
+                  <!-- 已认证状态(可申请修改) -->
+                  <div v-else-if="verifyStatus === 1 && !pendingRequest" class="school-action-row">
+                    <el-button type="primary" size="small" plain @click="openSchoolChangeDialog">
+                      申请修改学校
+                    </el-button>
+                    <span class="action-tip">如需修改学校/学院,请提交申请给管理员审核</span>
+                  </div>
+                  
+                  <!-- 审核中状态 -->
+                  <div v-else-if="pendingRequest?.status === 0" class="school-pending-row">
+                    <el-alert
+                      title="您的修改申请正在审核中"
+                      :description="`申请时间: ${new Date(pendingRequest.created_at).toLocaleString()}`"
+                      type="warning"
+                      show-icon
+                      :closable="false"
+                    />
+                  </div>
+                  
+                  <!-- 历史记录(已审核) -->
+                  <div v-else-if="pendingRequest && pendingRequest.status !== 0" class="school-pending-row">
+                    <el-alert
+                      :title="pendingRequest.status === 1 ? '修改申请已通过' : '修改申请已拒绝'"
+                      :description="pendingRequest.review_note || ''"
+                      :type="pendingRequest.status === 1 ? 'success' : 'error'"
+                      show-icon
+                      :closable="false"
+                    />
+                    <el-button 
+                      v-if="pendingRequest.status === 2 && verifyStatus === 1" 
+                      type="primary" 
+                      size="small" 
+                      plain
+                      @click="openSchoolChangeDialog"
+                      style="margin-top: 8px"
+                    >
+                      重新提交申请
+                    </el-button>
+                  </div>
+                </div>
               </el-form-item>
               <el-form-item label="学号">
                 <el-input :model-value="userInfo?.studentId || '未填写'" disabled />
@@ -332,6 +473,44 @@ onMounted(async () => {
       </div>
     </div>
   </div>
+
+  <!-- 学校修改申请对话框 -->
+  <el-dialog
+    v-model="showSchoolChangeDialog"
+    title="申请修改学校信息"
+    width="480px"
+    :close-on-click-modal="false"
+  >
+    <div class="dialog-tip">
+      <el-icon><InfoFilled /></el-icon>
+      <span>学校信息需经管理员审核后方可修改,请填写真实信息</span>
+    </div>
+    <el-form :model="schoolChangeForm" label-width="80px" size="default">
+      <el-form-item label="当前学校">
+        <el-input :model-value="userInfo?.school || '未设置'" disabled />
+      </el-form-item>
+      <el-form-item label="新学校" required>
+        <el-input v-model="schoolChangeForm.newSchool" placeholder="请输入新学校全称" />
+      </el-form-item>
+      <el-form-item label="新学院">
+        <el-input v-model="schoolChangeForm.newCollege" placeholder="请输入新学院(可选)" />
+      </el-form-item>
+      <el-form-item label="修改原因">
+        <el-input 
+          v-model="schoolChangeForm.reason" 
+          type="textarea" 
+          :rows="3" 
+          placeholder="请简要说明修改原因(可选)" 
+        />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="showSchoolChangeDialog = false">取消</el-button>
+      <el-button type="primary" :loading="schoolChangeLoading" @click="submitSchoolChange">
+        提交申请
+      </el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <style lang="scss" scoped>
@@ -382,5 +561,54 @@ onMounted(async () => {
       padding-left: 0;
     }
   }
+}
+
+.school-auth-section {
+  .school-info-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    
+    .school-value {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    
+    .college-sep {
+      color: var(--text-secondary);
+    }
+  }
+  
+  .school-action-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--bg-light);
+    border-radius: var(--radius-md);
+    
+    .action-tip {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+  }
+  
+  .school-pending-row {
+    margin-top: 8px;
+  }
+}
+
+.dialog-tip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--primary-light);
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup>
-// 校园认证审核:待审核用户列表 + 通过/拒绝
+// 校园认证管理:查看用户认证状态(首次认证直接通过,学校修改需审核)
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import adminApi from '@/api/admin'
@@ -76,7 +76,8 @@ onMounted(loadData)
 <template>
   <div class="admin-page">
     <div class="head">
-      <h2 class="page-title">校园认证审核</h2>
+      <h2 class="page-title">校园认证管理</h2>
+      <p class="page-desc">首次认证直接通过,如需修改学校信息请前往「学校修改审核」处理</p>
       <div class="filters">
         <el-select v-model="filterStatus" style="width: 150px" @change="handleFilterChange">
           <el-option v-for="o in statusOptions" :key="o.value" :label="o.label" :value="o.value" />
@@ -177,6 +178,7 @@ onMounted(loadData)
 .admin-page { padding: 20px 24px; }
 .head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
 .page-title { margin: 0; font-size: 20px; }
+.page-desc { margin: 6px 0 16px; font-size: 13px; color: var(--el-color-info); }
 .filters { display: flex; gap: 10px; align-items: center; }
 .user-cell { display: flex; align-items: center; }
 .uname { font-weight: 600; font-size: 14px; }

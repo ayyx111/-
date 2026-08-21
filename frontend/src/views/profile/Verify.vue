@@ -71,7 +71,8 @@ async function handleSubmit() {
         enrollmentYear: form.enrollmentYear
       }
       await authApi.verifyCampus(payload)
-      ElMessage.success('认证已提交,等待审核')
+      // 首次认证直接通过
+      ElMessage.success('认证成功!现在可以发布商品和交易了')
       await userStore.getUserInfo()
     } catch (e) {
       // ignore
@@ -150,7 +151,7 @@ onMounted(prefill)
           />
           <el-alert
             v-else
-            title="校园认证后才能发布商品和交易,请如实填写信息"
+            title="完成校园认证后即可发布商品、进行交易,修改学校信息需提交审核申请"
             type="info"
             show-icon
             :closable="false"

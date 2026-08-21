@@ -65,6 +65,6 @@ exports.verifyCampus = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const result = await authService.verifyCampus(userId, req.body);
-    ResponseUtil.success(res, result, '认证申请已提交,等待审核');
+    ResponseUtil.success(res, result, '校园认证成功,无需审核');
   } catch (err) { next(err); }
 };
