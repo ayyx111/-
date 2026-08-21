@@ -314,8 +314,9 @@ async function reviewOrder(userId, id, { rating, content }) {
     content: content || null
   });
 
-  // 评价后更新被评价人信用分:好评(4-5星)+5,中评(3星)不变,差评(1-2星)-10
-  const scoreChange = rating >= 4 ? 5 : (rating === 3 ? 0 : -10);
+  // 评价后更新被评价人信用分:5星+2,4星+1,3星-2,2星-4,1星-6
+  const scoreMap = { 5: 2, 4: 1, 3: -2, 2: -4, 1: -6 };
+  const scoreChange = scoreMap[rating] || 0;
   if (scoreChange !== 0) {
     const targetUser = await User.findByPk(toUserId);
     if (targetUser) {

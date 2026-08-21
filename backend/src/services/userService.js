@@ -133,6 +133,14 @@ async function getPublicProfile(userId) {
     limit: 20
   });
 
+  // 该用户已售商品(status=3)
+  const soldProducts = await Product.findAll({
+    where: { user_id: userId, status: 3 },
+    include: [{ model: ProductImage, as: 'images', limit: 1 }],
+    order: [['created_at', 'DESC']],
+    limit: 20
+  });
+
   // 收到的评价(含评价人信息)
   const reviews = await Review.findAll({
     where: { to_user_id: userId },
@@ -157,6 +165,11 @@ async function getPublicProfile(userId) {
   data.productCount = productCount;
   data.soldCount = soldCount;
   data.products = products.map(p => {
+    const obj = p.toJSON();
+    obj.images = (obj.images || []).map(img => img.image_url || img.image_url);
+    return obj;
+  });
+  data.soldProducts = soldProducts.map(p => {
     const obj = p.toJSON();
     obj.images = (obj.images || []).map(img => img.image_url || img.image_url);
     return obj;

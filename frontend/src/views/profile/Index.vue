@@ -22,11 +22,10 @@ const menus = [
 ]
 
 onMounted(async () => {
-  if (!userInfo.value) {
-    try {
-      await userStore.getUserInfo()
-    } catch (e) {}
-  }
+  // 每次进入个人中心都重新拉取,确保 productCount/soldCount 最新
+  try {
+    await userStore.getUserInfo()
+  } catch (e) {}
 })
 
 function go(path) {

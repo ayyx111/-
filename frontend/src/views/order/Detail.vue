@@ -130,12 +130,12 @@ onMounted(loadOrder)
 
         <!-- 交易双方 -->
         <div class="parties">
-          <div class="party">
+          <div class="party clickable" @click="order.buyer?.id && router.push(`/user/${order.buyer.id}`)">
             <span class="label">买家</span>
             <el-avatar :size="32" :src="resolveImageUrl(order.buyer?.avatar)">{{ order.buyer?.nickname?.[0] }}</el-avatar>
             <span>{{ order.buyer?.nickname }}</span>
           </div>
-          <div class="party">
+          <div class="party clickable" @click="order.seller?.id && router.push(`/user/${order.seller.id}`)">
             <span class="label">卖家</span>
             <el-avatar :size="32" :src="resolveImageUrl(order.seller?.avatar)">{{ order.seller?.nickname?.[0] }}</el-avatar>
             <span>{{ order.seller?.nickname }}</span>
@@ -260,6 +260,18 @@ onMounted(loadOrder)
     color: var(--text-secondary);
     font-size: 13px;
     margin-right: 4px;
+  }
+}
+.party.clickable {
+  cursor: pointer;
+  &:hover {
+    .el-avatar {
+      outline: 2px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+    span:not(.label) {
+      color: var(--primary-color);
+    }
   }
 }
 .remark {

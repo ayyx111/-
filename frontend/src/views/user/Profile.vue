@@ -15,7 +15,7 @@ async function loadProfile() {
   loading.value = true
   try {
     const res = await userApi.getPublicProfile(route.params.id)
-    profile.value = res
+    profile.value = res.data || res
   } catch (e) {
     // 拦截器会提示
   } finally {
@@ -69,7 +69,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Tab:在售商品 + 评价 -->
+        <!-- Tab:在售商品 + 已售商品 + 评价 -->
         <el-tabs class="card tabs-card">
           <el-tab-pane :label="`在售商品 (${profile.products?.length || 0})`">
             <div v-if="profile.products?.length" class="product-grid">
@@ -93,6 +93,30 @@ onMounted(() => {
               </div>
             </div>
             <el-empty v-else description="暂无在售商品" />
+          </el-tab-pane>
+
+          <el-tab-pane :label="`已售出 (${profile.soldProducts?.length || 0})`">
+            <div v-if="profile.soldProducts?.length" class="product-grid">
+              <div
+                v-for="p in profile.soldProducts"
+                :key="p.id"
+                class="product-item"
+                @click="goProduct(p.id)"
+              >
+                <div class="product-img">
+                  <el-image
+                    :src="resolveImageUrl(p.images?.[0])"
+                    fit="cover"
+                    style="width:100%;height:120px;border-radius:8px"
+                  >
+                    <template #error><div class="img-fallback">无图</div></template>
+                  </el-image>
+                </div>
+                <div class="product-title">{{ p.title }}</div>
+                <div class="product-price">¥{{ formatPrice(p.price) }}</div>
+              </div>
+            </div>
+            <el-empty v-else description="暂无已售商品" />
           </el-tab-pane>
 
           <el-tab-pane :label="`收到评价 (${profile.reviews?.length || 0})`">
