@@ -16,7 +16,9 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           port: 22
+          command_timeout: 600s
           script: |
+            set -e
             cd ${{ secrets.DEPLOY_PATH }}
 
             echo "=== [1/5] 拉取最新代码 ==="
@@ -38,43 +40,70 @@ jobs:
             MYSQL_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' campus_fish_mysql)
             REDIS_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' campus_fish_redis)
 
-            # 杀掉旧进程
-            pkill -f "node src/app.js" || true
-            sleep 2
+            # 生成启动脚本(避免 nohup 在 SSH 会话中被杀)
+            cat > /tmp/start-campus-fish.sh << 'STARTEOF'
+            #!/bin/bash
+            cd /opt/campus-fish/backend
+            STARTEOF
 
-            # 启动新进程
-            NODE_ENV=production \
-            DB_TYPE=mysql \
-            DB_HOST=$MYSQL_IP \
-            DB_PORT=3306 \
-            DB_USER=root \
-            DB_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }} \
-            DB_NAME=campus_fish \
-            DB_SYNC=true \
-            DB_SYNC_FORCE=false \
-            REDIS_HOST=$REDIS_IP \
-            REDIS_PORT=6379 \
-            JWT_SECRET=${{ secrets.JWT_SECRET }} \
-            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }} \
-            UPLOAD_DIR=uploads \
-            UPLOAD_PUBLIC_BASE_URL=${{ secrets.DOMAIN }} \
-            CORS_ORIGIN=* \
-            ADMIN_USERNAME=admin \
-            ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }} \
-            RESEND_API_KEY=${{ secrets.RESEND_API_KEY }} \
-            RESEND_FROM=${{ secrets.RESEND_FROM }} \
-            nohup node src/app.js > /tmp/campus-fish-backend.log 2>&1 &
+            # 追加环境变量和启动命令
+            cat >> /tmp/start-campus-fish.sh << EOF
+            export NODE_ENV=production
+            export DB_TYPE=mysql
+            export DB_HOST=$MYSQL_IP
+            export DB_PORT=3306
+            export DB_USER=root
+            export DB_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
+            export DB_NAME=campus_fish
+            export DB_SYNC=true
+            export DB_SYNC_FORCE=false
+            export REDIS_HOST=$REDIS_IP
+            export REDIS_PORT=6379
+            export JWT_SECRET=${{ secrets.JWT_SECRET }}
+            export JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            export UPLOAD_DIR=uploads
+            export UPLOAD_PUBLIC_BASE_URL=${{ secrets.DOMAIN }}
+            export CORS_ORIGIN=*
+            export ADMIN_USERNAME=admin
+            export ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+            export RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+            export RESEND_FROM=${{ secrets.RESEND_FROM }}
+            exec node src/app.js > /tmp/campus-fish-backend.log 2>&1
+            EOF
 
-            sleep 5
+            chmod +x /tmp/start-campus-fish.sh
 
-            # 检查后端是否启动成功
-            if curl -s http://localhost:3000/health | grep -q "ok"; then
-              echo "后端启动成功"
-            else
-              echo "后端启动失败,查看日志:"
-              tail -30 /tmp/campus-fish-backend.log
-              exit 1
+            # 用 pidof 精确查找并杀掉旧进程
+            if pidof -o %PPID -x "node" > /dev/null 2>&1; then
+              # 查找具体的后端进程
+              BACKEND_PID=$(pgrep -f "node src/app.js" || true)
+              if [ -n "$BACKEND_PID" ]; then
+                echo "停止旧后端进程 PID: $BACKEND_PID"
+                kill $BACKEND_PID || true
+                sleep 3
+                # 确保进程已停止
+                kill -9 $BACKEND_PID 2>/dev/null || true
+              fi
             fi
+
+            # 用 setsid 启动新进程,脱离 SSH 会话
+            setsid /tmp/start-campus-fish.sh &
+            disown
+
+            # 等待后端启动(最多 30 秒)
+            echo "等待后端启动..."
+            for i in $(seq 1 15); do
+              sleep 2
+              if curl -s http://localhost:3000/api/v1/products?pageSize=1 | grep -q '"code":200'; then
+                echo "后端启动成功 (耗时 $((i*2)) 秒)"
+                break
+              fi
+              if [ $i -eq 15 ]; then
+                echo "后端启动失败,查看日志:"
+                tail -50 /tmp/campus-fish-backend.log
+                exit 1
+              fi
+            done
 
             echo "=== [5/5] 重载 Nginx ==="
             sudo systemctl reload nginx
