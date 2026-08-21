@@ -22,9 +22,10 @@ const statusTabs = [
   { label: '全部', value: '' },
   { label: '待审核', value: 0 },
   { label: '在售', value: 1 },
-  { label: '已售', value: 2 },
-  { label: '已下架', value: 3 },
-  { label: '审核未通过', value: 4 }
+  { label: '已锁定', value: 2 },
+  { label: '已售', value: 3 },
+  { label: '已下架', value: 4 },
+  { label: '审核未通过', value: 5 }
 ]
 
 async function loadData() {
@@ -57,13 +58,13 @@ function editItem(item) {
   router.push({ name: 'ProductEdit', params: { id: item.id } })
 }
 
-// 下架/上架
+// 下架/上架 (后端:1=在售 4=已下架)
 async function toggleShelf(item) {
   try {
     await ElMessageBox.confirm(item.status === 1 ? '确认下架该商品?' : '确认重新上架?', '提示', {
       type: 'warning'
     })
-    await productApi.update(item.id, { status: item.status === 1 ? 3 : 1 })
+    await productApi.update(item.id, { status: item.status === 1 ? 4 : 1 })
     ElMessage.success('操作成功')
     loadData()
   } catch (e) {}
@@ -103,7 +104,7 @@ onMounted(loadData)
       <div v-loading="loading" class="list-wrap">
         <div v-if="list.length" class="my-list">
           <div v-for="item in list" :key="item.id" class="my-item card">
-            <el-image :src="resolveImageUrl(item.coverImage)" fit="cover" class="item-img" />
+            <el-image :src="resolveImageUrl(item.coverImage || item.images?.[0])" fit="cover" class="item-img" />
             <div class="item-info">
               <h3 class="item-title text-ellipsis" @click="router.push(`/products/${item.id}`)">
                 {{ item.title }}
@@ -127,7 +128,7 @@ onMounted(loadData)
                 @click="toggleShelf(item)"
               >下架</el-button>
               <el-button
-                v-else-if="item.status === 3"
+                v-else-if="item.status === 4"
                 size="small"
                 type="success"
                 plain

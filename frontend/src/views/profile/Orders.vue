@@ -131,7 +131,7 @@ onMounted(loadData)
             class="order-item card"
             @click="router.push(`/orders/${order.id}`)"
           >
-            <el-image :src="resolveImageUrl(order.product?.coverImage)" fit="cover" class="o-img" />
+            <el-image :src="resolveImageUrl(order.product?.coverImage || order.product?.images?.[0])" fit="cover" class="o-img" />
             <div class="o-info">
               <h3 class="o-title text-ellipsis">{{ order.product?.title }}</h3>
               <div class="o-price price">{{ formatPrice(order.product?.price) }}</div>

@@ -226,6 +226,20 @@ async function updateProduct(userId, id, data, imageUrls) {
   if (product.user_id !== userId) throw new ApiError('无权操作他人商品', 403);
   if (product.status === PRODUCT_STATUS.SOLD) throw new ApiError('已售商品不可修改', 400);
 
+  // 仅切换上下架状态(不重置审核、不跑 AI 审核流程)
+  // 前端 toggleShelf 传 { status: 1 或 4 },对应后端 ON_SALE / OFF_SHELF
+  if (data.status !== undefined && data.title === undefined && data.description === undefined
+      && data.price === undefined && data.categoryId === undefined
+      && data.conditionLevel === undefined && data.tradeType === undefined
+      && (!imageUrls || imageUrls.length === 0)) {
+    const newStatus = Number(data.status);
+    if (newStatus !== PRODUCT_STATUS.ON_SALE && newStatus !== PRODUCT_STATUS.OFF_SHELF) {
+      throw new ApiError('仅支持在售/已下架状态切换', 400);
+    }
+    await product.update({ status: newStatus });
+    return product;
+  }
+
   const update = {};
   if (data.title !== undefined) update.title = data.title;
   if (data.description !== undefined) update.description = data.description;

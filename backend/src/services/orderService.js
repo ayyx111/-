@@ -98,7 +98,7 @@ async function listOrders(userId, query) {
   const { rows, count } = await Order.findAndCountAll({
     where,
     include: [
-      { model: Product, as: 'product', attributes: ['id', 'title', 'price', 'status'] },
+      { model: Product, as: 'product', attributes: ['id', 'title', 'price', 'status'], include: [{ model: ProductImage, as: 'images', attributes: ['id', 'image_url', 'sort_order'], separate: true, order: [['sort_order', 'ASC']] }] },
       { model: User, as: 'buyer', attributes: ['id', 'username', 'avatar', 'nickname'] },
       { model: User, as: 'seller', attributes: ['id', 'username', 'avatar', 'nickname'] },
       {

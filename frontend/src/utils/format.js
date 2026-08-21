@@ -77,13 +77,14 @@ export const TRADE_TYPE_MAP = {
   3: { label: '面交/邮寄', icon: 'MapLocation' }
 }
 
-// 商品状态 0待审核 1在售 2已售 3已下架 4审核拒绝
+// 商品状态 0待审核 1在售 2已锁定 3已售 4已下架 5审核拒绝
 export const PRODUCT_STATUS_MAP = {
   0: { label: '待审核', color: 'warning' },
   1: { label: '在售', color: 'success' },
-  2: { label: '已售', color: 'info' },
-  3: { label: '已下架', color: 'info' },
-  4: { label: '审核未通过', color: 'danger' }
+  2: { label: '已锁定', color: 'info' },
+  3: { label: '已售', color: 'info' },
+  4: { label: '已下架', color: 'info' },
+  5: { label: '审核未通过', color: 'danger' }
 }
 
 // 订单状态 0待确认 1待交易 2交易中 3已完成 4已取消
