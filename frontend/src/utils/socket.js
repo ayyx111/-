@@ -14,7 +14,7 @@ export function createSocket(token) {
   const wsUrl = import.meta.env.VITE_WS_URL || '/'
 
   socket = io(wsUrl, {
-    path: '/api/v1/ws/chat',
+    path: '/ws/chat',
     transports: ['websocket'],
     query: { token },
     reconnection: true,

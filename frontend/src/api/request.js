@@ -72,7 +72,12 @@ service.interceptors.response.use(
     if (response) {
       switch (response.status) {
         case 401:
-          handleUnauthorized()
+          // 在登录页:401 = 账号密码错误,直接显示后端返回的错误信息
+          if (router.currentRoute.value.name === 'Login') {
+            ElMessage.error(response.data?.message || '账号或密码错误')
+          } else {
+            handleUnauthorized()
+          }
           break
         case 403:
           ElMessage.error(response.data?.message || '无权限访问')

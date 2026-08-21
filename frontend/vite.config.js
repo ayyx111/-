@@ -34,8 +34,8 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true
       },
-      // WebSocket 代理
-      '/socket.io': {
+      // WebSocket 代理(后端 Socket.IO path=/ws/chat)
+      '/ws': {
         target: 'http://localhost:3000',
         changeOrigin: true,
         ws: true
