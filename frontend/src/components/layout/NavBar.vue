@@ -170,14 +170,12 @@ async function clickNotification(n) {
       if (row) { row.isRead = 1 }
     }).catch(() => {})
   }
-  // 关下拉 → 跳页面
+  // 关下拉 → 用 setTimeout 等popover完全关闭后再跳转,避免首次导航被popover关闭过程打断
   notifVisible.value = false
-  await nextTick()
-  try {
-    await router.push(resolveNotifLink(n))
-  } catch (e) {
-    // navigation cancelled ignore
-  }
+  const target = resolveNotifLink(n)
+  setTimeout(() => {
+    router.push(target)
+  }, 50)
 }
 
 // 搜索
