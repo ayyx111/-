@@ -231,7 +231,7 @@ onMounted(loadDetail)
           </div>
 
           <!-- 卖家信息 -->
-          <div class="seller-card">
+          <div class="seller-card" style="cursor:pointer" @click="router.push(`/user/${detail.user?.id}`)">
             <el-avatar :size="48" :src="resolveImageUrl(detail.user?.avatar)">
               {{ detail.user?.nickname?.[0] }}
             </el-avatar>

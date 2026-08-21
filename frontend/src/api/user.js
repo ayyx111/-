@@ -20,6 +20,9 @@ export const userApi = {
   // 获取用户公开信息(无需登录)
   getUserById: (id) => http.get(`/user/${id}`),
 
+  // 获取用户公开主页(历史发布+评价+签名)
+  getPublicProfile: (id) => http.get(`/user/${id}/profile`),
+
   // 学校修改申请
   submitSchoolChange: (data) => http.post('/school-change-requests', data),
   getMySchoolChangeRequests: (params) => http.get('/school-change-requests/mine', params),

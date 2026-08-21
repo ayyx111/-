@@ -25,6 +25,12 @@ const routes = [
         name: 'Search',
         component: () => import('@/views/home/Search.vue'),
         meta: { title: '搜索结果' }
+      },
+      {
+        path: 'user/:id',
+        name: 'UserProfile',
+        component: () => import('@/views/user/Profile.vue'),
+        meta: { title: '用户主页' }
       }
     ]
   },

@@ -13,6 +13,14 @@ exports.getProfile = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+/** 获取用户公开主页(无需登录) */
+exports.getPublicProfile = async (req, res, next) => {
+  try {
+    const data = await userService.getPublicProfile(req.params.id);
+    ResponseUtil.success(res, data);
+  } catch (err) { next(err); }
+};
+
 /** 更新资料 */
 exports.updateProfile = async (req, res, next) => {
   try {

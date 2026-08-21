@@ -60,6 +60,9 @@ function go(path) {
           <div class="user-email">
             <el-icon><Message /></el-icon>{{ userInfo?.email || '未绑定邮箱' }}
           </div>
+          <div v-if="userInfo?.bio" class="user-bio">
+            {{ userInfo.bio }}
+          </div>
           <div class="user-stats">
             <div class="stat">
               <span class="num">{{ userInfo?.productCount || 0 }}</span>
@@ -127,6 +130,12 @@ function go(path) {
   color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 6px;
+}
+.user-bio {
+  color: var(--text-tertiary, #999);
+  font-size: 13px;
+  margin-bottom: 6px;
+  font-style: italic;
 }
 .user-stats {
   display: flex;

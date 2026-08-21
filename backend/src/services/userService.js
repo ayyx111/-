@@ -3,18 +3,32 @@
  */
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const { User, Review } = require('../models');
+const { User, Review, Product, Order } = require('../models');
 const { ApiError } = require('../middleware/errorHandler');
 const authService = require('./authService');
 const validator = require('../utils/validator');
 
 /**
- * 获取个人资料(含统计)
+ * 获取个人资料(含统计:发布数、已售数)
  */
 async function getProfile(userId) {
   const user = await User.findByPk(userId);
   if (!user) throw new ApiError('用户不存在', 404);
-  return authService.sanitizeUser(user);
+
+  // 统计发布商品数(排除审核中/拒绝的)
+  const productCount = await Product.count({
+    where: { user_id: userId, status: { [Op.in]: [1, 2, 3, 4] } }
+  });
+
+  // 统计已售数(卖家订单状态=3已完成)
+  const soldCount = await Order.count({
+    where: { seller_id: userId, status: 3 }
+  });
+
+  const profile = authService.sanitizeUser(user);
+  profile.productCount = productCount;
+  profile.soldCount = soldCount;
+  return profile;
 }
 
 /**
@@ -102,10 +116,67 @@ async function getPublicInfo(userId) {
   return user;
 }
 
+/**
+ * 获取用户公开主页(头像点击后:历史发布商品 + 收到的评价 + 个性签名)
+ */
+async function getPublicProfile(userId) {
+  const user = await User.findByPk(userId, {
+    attributes: ['id', 'username', 'avatar', 'nickname', 'bio', 'school', 'college', 'enrollment_year', 'is_verified', 'credit_score', 'created_at']
+  });
+  if (!user) throw new ApiError('用户不存在', 404);
+
+  // 该用户在售商品(status=1)
+  const products = await Product.findAll({
+    where: { user_id: userId, status: 1 },
+    include: [{ model: ProductImage, as: 'images', limit: 1 }],
+    order: [['created_at', 'DESC']],
+    limit: 20
+  });
+
+  // 收到的评价(含评价人信息)
+  const reviews = await Review.findAll({
+    where: { to_user_id: userId },
+    include: [{
+      model: User,
+      as: 'reviewer',
+      attributes: ['id', 'username', 'avatar', 'nickname']
+    }],
+    order: [['created_at', 'DESC']],
+    limit: 20
+  });
+
+  // 统计
+  const productCount = await Product.count({
+    where: { user_id: userId, status: { [Op.in]: [1, 2, 3, 4] } }
+  });
+  const soldCount = await Order.count({
+    where: { seller_id: userId, status: 3 }
+  });
+
+  const data = user.toJSON();
+  data.productCount = productCount;
+  data.soldCount = soldCount;
+  data.products = products.map(p => {
+    const obj = p.toJSON();
+    obj.images = (obj.images || []).map(img => img.image_url || img.image_url);
+    return obj;
+  });
+  data.reviews = reviews.map(r => {
+    const obj = r.toJSON();
+    if (obj.reviewer) {
+      obj.reviewer.avatar = obj.reviewer.avatar;
+    }
+    return obj;
+  });
+
+  return data;
+}
+
 module.exports = {
   getProfile,
   updateProfile,
   changePassword,
   changeEmail,
-  getPublicInfo
+  getPublicInfo,
+  getPublicProfile
 };

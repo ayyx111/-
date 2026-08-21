@@ -314,6 +314,16 @@ async function reviewOrder(userId, id, { rating, content }) {
     content: content || null
   });
 
+  // 评价后更新被评价人信用分:好评(4-5星)+5,中评(3星)不变,差评(1-2星)-10
+  const scoreChange = rating >= 4 ? 5 : (rating === 3 ? 0 : -10);
+  if (scoreChange !== 0) {
+    const targetUser = await User.findByPk(toUserId);
+    if (targetUser) {
+      const newScore = Math.max(0, Math.min(999, (targetUser.credit_score || 100) + scoreChange));
+      await targetUser.update({ credit_score: newScore });
+    }
+  }
+
   // 通知对方(relatedId 指向订单,前端点击"新评价"通知要跳到订单详情查看评价)
   await notifService.createNotification({
     userId: toUserId,
