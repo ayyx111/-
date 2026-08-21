@@ -39,6 +39,11 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
         ws: true
+      },
+      // 上传文件代理(后端返回 /uploads/... 相对路径,需代理到后端静态服务)
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
       }
     }
   },

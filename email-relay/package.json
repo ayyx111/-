@@ -1,6 +1,0 @@
-{
-  "name": "email-relay",
-  "version": "1.0.0",
-  "description": "QQ SMTP 邮件中转服务,部署在 Vercel(纯 Node.js TLS,不依赖 nodemailer)",
-  "dependencies": {}
-}
