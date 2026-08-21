@@ -12,7 +12,7 @@ const SchoolChangeRequest = sequelize.define('SchoolChangeRequest', {
     autoIncrement: true
   },
   user_id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.BIGINT,
     allowNull: false,
     comment: '申请人ID'
   },
@@ -47,7 +47,7 @@ const SchoolChangeRequest = sequelize.define('SchoolChangeRequest', {
     comment: '0待审核 1已通过 2已拒绝'
   },
   reviewer_id: {
-    type: DataTypes.INTEGER,
+    type: DataTypes.BIGINT,
     allowNull: true,
     comment: '审核人ID'
   },
