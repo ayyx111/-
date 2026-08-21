@@ -3,7 +3,7 @@
  */
 const bcrypt = require('bcryptjs');
 const { Op } = require('sequelize');
-const { User, Review, Product, Order } = require('../models');
+const { User, Review, Product, Order, ProductImage } = require('../models');
 const { ApiError } = require('../middleware/errorHandler');
 const authService = require('./authService');
 const validator = require('../utils/validator');
