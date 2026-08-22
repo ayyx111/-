@@ -21,74 +21,62 @@ jobs:
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
 
-            echo "=== [1/5] 拉取最新代码 ==="
+            echo "=== [1/6] 拉取最新代码 ==="
             git pull origin main
 
-            echo "=== [2/5] 安装后端依赖 ==="
+            echo "=== [2/6] 安装后端依赖 ==="
             cd backend
             npm install --production
 
-            echo "=== [3/5] 构建前端 ==="
+            echo "=== [3/6] 构建前端 ==="
             cd ../frontend
             npm install
             npm run build
 
-            echo "=== [4/5] 重启后端服务 ==="
+            echo "=== [4/6] 生成环境变量文件 ==="
             cd ../backend
 
-            # 获取 MySQL/Redis 容器 IP
             MYSQL_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' campus_fish_mysql)
             REDIS_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' campus_fish_redis)
 
-            # 生成启动脚本(避免 nohup 在 SSH 会话中被杀)
-            cat > /tmp/start-campus-fish.sh << 'STARTEOF'
-            #!/bin/bash
-            cd /opt/campus-fish/backend
-            STARTEOF
-
-            # 追加环境变量和启动命令
-            cat >> /tmp/start-campus-fish.sh << EOF
-            export NODE_ENV=production
-            export DB_TYPE=mysql
-            export DB_HOST=$MYSQL_IP
-            export DB_PORT=3306
-            export DB_USER=root
-            export DB_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
-            export DB_NAME=campus_fish
-            export DB_SYNC=true
-            export DB_SYNC_FORCE=false
-            export REDIS_HOST=$REDIS_IP
-            export REDIS_PORT=6379
-            export JWT_SECRET=${{ secrets.JWT_SECRET }}
-            export JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
-            export UPLOAD_DIR=uploads
-            export UPLOAD_PUBLIC_BASE_URL=${{ secrets.DOMAIN }}
-            export CORS_ORIGIN=*
-            export ADMIN_USERNAME=admin
-            export ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
-            export RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-            export RESEND_FROM=${{ secrets.RESEND_FROM }}
-            exec node src/app.js > /tmp/campus-fish-backend.log 2>&1
+            cat > .env.production << EOF
+            NODE_ENV=production
+            DB_TYPE=mysql
+            DB_HOST=$MYSQL_IP
+            DB_PORT=3306
+            DB_USER=root
+            DB_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
+            DB_NAME=campus_fish
+            DB_SYNC=true
+            DB_SYNC_FORCE=false
+            REDIS_HOST=$REDIS_IP
+            REDIS_PORT=6379
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            UPLOAD_DIR=uploads
+            UPLOAD_PUBLIC_BASE_URL=${{ secrets.DOMAIN }}
+            CORS_ORIGIN=*
+            ADMIN_USERNAME=admin
+            ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+            RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
+            RESEND_FROM=${{ secrets.RESEND_FROM }}
+            TRUST_PROXY=true
             EOF
 
-            chmod +x /tmp/start-campus-fish.sh
-
-            # 用 pidof 精确查找并杀掉旧进程
-            if pidof -o %PPID -x "node" > /dev/null 2>&1; then
-              # 查找具体的后端进程
-              BACKEND_PID=$(pgrep -f "node src/app.js" || true)
-              if [ -n "$BACKEND_PID" ]; then
-                echo "停止旧后端进程 PID: $BACKEND_PID"
-                kill $BACKEND_PID || true
-                sleep 3
-                # 确保进程已停止
-                kill -9 $BACKEND_PID 2>/dev/null || true
-              fi
+            echo "=== [5/6] 用 PM2 重启后端服务 ==="
+            # 确保 PM2 已安装
+            if ! command -v pm2 &> /dev/null; then
+              npm install -g pm2
             fi
 
-            # 用 setsid 启动新进程,脱离 SSH 会话
-            setsid /tmp/start-campus-fish.sh &
-            disown
+            # 停止旧进程(如果存在)
+            pm2 delete campus-fish-backend 2>/dev/null || true
+
+            # 用 PM2 启动
+            pm2 start src/app.js --name campus-fish-backend --env production
+
+            # 保存 PM2 进程列表,确保开机自启
+            pm2 save
 
             # 等待后端启动(最多 30 秒)
             echo "等待后端启动..."
@@ -100,14 +88,15 @@ jobs:
               fi
               if [ $i -eq 15 ]; then
                 echo "后端启动失败,查看日志:"
-                tail -50 /tmp/campus-fish-backend.log
+                pm2 logs campus-fish-backend --lines 50 --nostream
                 exit 1
               fi
             done
 
-            echo "=== [5/5] 重载 Nginx ==="
+            echo "=== [6/6] 重载 Nginx ==="
             sudo systemctl reload nginx
 
             echo ""
             echo "=== 部署完成 ==="
             echo "访问地址: ${{ secrets.DOMAIN }}"
+            pm2 status
