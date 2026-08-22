@@ -49,7 +49,10 @@ function _resolveLocalPath(filePath) {
   const relativeUrl = `/${relativePath}`;
 
   if (config.upload.publicBaseUrl) {
-    const base = config.upload.publicBaseUrl.replace(/\/$/, '');
+    // 清理 baseUrl:去掉反引号、空格、首尾斜杠
+    const base = config.upload.publicBaseUrl
+      .replace(/[`\s]/g, '')
+      .replace(/\/$/, '');
     return `${base}${relativeUrl}`;
   }
 

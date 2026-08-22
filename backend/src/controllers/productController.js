@@ -32,8 +32,11 @@ exports.create = async (req, res, next) => {
     if (req.files && req.files.length > 0) {
       imageUrls = req.files.map((f) => resolveUploadUrl(f.path));
     } else if (req.body.images) {
-      // 兼容直接传图片URL数组的情况
-      imageUrls = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+      // 兼容直接传图片URL数组的情况(过滤非字符串,清理反引号)
+      const raw = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+      imageUrls = raw
+        .filter((u) => typeof u === 'string' && u.length > 0)
+        .map((u) => u.replace(/[`\s]/g, ''));
     }
     const product = await productService.createProduct(userId, req.body, imageUrls);
     ResponseUtil.created(res, product, '发布成功,等待审核');
@@ -48,7 +51,10 @@ exports.update = async (req, res, next) => {
     if (req.files && req.files.length > 0) {
       imageUrls = req.files.map((f) => resolveUploadUrl(f.path));
     } else if (req.body.images) {
-      imageUrls = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+      const raw = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+      imageUrls = raw
+        .filter((u) => typeof u === 'string' && u.length > 0)
+        .map((u) => u.replace(/[`\s]/g, ''));
     }
     const product = await productService.updateProduct(userId, Number(req.params.id), req.body, imageUrls);
     ResponseUtil.success(res, product, '更新成功');

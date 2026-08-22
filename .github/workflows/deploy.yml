@@ -40,29 +40,30 @@ jobs:
             MYSQL_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' campus_fish_mysql)
             REDIS_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' campus_fish_redis)
 
-            cat > .env << EOF
-            NODE_ENV=production
-            DB_TYPE=mysql
-            DB_HOST=$MYSQL_IP
-            DB_PORT=3306
-            DB_USER=root
-            DB_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
-            DB_NAME=campus_fish
-            DB_SYNC=true
-            DB_SYNC_FORCE=false
-            REDIS_HOST=$REDIS_IP
-            REDIS_PORT=6379
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
-            UPLOAD_DIR=uploads
-            UPLOAD_PUBLIC_BASE_URL=${{ secrets.DOMAIN }}
-            CORS_ORIGIN=*
-            ADMIN_USERNAME=admin
-            ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
-            RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}
-            RESEND_FROM=${{ secrets.RESEND_FROM }}
-            TRUST_PROXY=true
-            EOF
+            # 用 printf 逐行写入,避免 heredoc 缩进/特殊字符问题
+            printf '%s\n' \
+              "NODE_ENV=production" \
+              "DB_TYPE=mysql" \
+              "DB_HOST=$MYSQL_IP" \
+              "DB_PORT=3306" \
+              "DB_USER=root" \
+              "DB_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}" \
+              "DB_NAME=campus_fish" \
+              "DB_SYNC=true" \
+              "DB_SYNC_FORCE=false" \
+              "REDIS_HOST=$REDIS_IP" \
+              "REDIS_PORT=6379" \
+              "JWT_SECRET=${{ secrets.JWT_SECRET }}" \
+              "JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}" \
+              "UPLOAD_DIR=uploads" \
+              "UPLOAD_PUBLIC_BASE_URL=${{ secrets.DOMAIN }}" \
+              "CORS_ORIGIN=*" \
+              "ADMIN_USERNAME=admin" \
+              "ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}" \
+              "RESEND_API_KEY=${{ secrets.RESEND_API_KEY }}" \
+              "RESEND_FROM=${{ secrets.RESEND_FROM }}" \
+              "TRUST_PROXY=true" \
+              > .env
 
             echo "=== [5/6] 用 PM2 重启后端服务 ==="
             # 确保 PM2 已安装
