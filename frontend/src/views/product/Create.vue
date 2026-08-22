@@ -140,7 +140,9 @@ async function loadProduct() {
     form.conditionLevel = res.conditionLevel
     form.tradeType = res.tradeType
     form.location = res.location || ''
-    form.images = res.images || []
+    form.images = (res.images || [])
+      .map((img) => (typeof img === 'object' ? img.image_url || img.url : img))
+      .filter(Boolean)
     fileList.value = form.images.map((url) => ({ name: url, url: resolveImageUrl(url) }))
   } catch (e) {
     ElMessage.error('加载商品信息失败')

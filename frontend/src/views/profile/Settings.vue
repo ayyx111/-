@@ -584,14 +584,18 @@ onMounted(async () => {
   .school-action-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
     padding: 12px 16px;
     background: var(--bg-light);
     border-radius: var(--radius-md);
     
     .action-tip {
+      flex: 1 1 auto;
+      min-width: 0;
       font-size: 13px;
       color: var(--text-secondary);
+      line-height: 1.5;
     }
   }
   
@@ -610,5 +614,12 @@ onMounted(async () => {
   margin-bottom: 20px;
   font-size: 13px;
   color: var(--text-secondary);
+
+  span {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+    line-height: 1.5;
+  }
 }
 </style>
