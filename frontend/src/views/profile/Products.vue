@@ -104,7 +104,14 @@ onMounted(loadData)
       <div v-loading="loading" class="list-wrap">
         <div v-if="list.length" class="my-list">
           <div v-for="item in list" :key="item.id" class="my-item card">
-            <el-image :src="resolveImageUrl(item.coverImage || item.images?.[0])" fit="cover" class="item-img" />
+            <el-image :src="resolveImageUrl(item.coverImage || item.images?.[0])" fit="cover" class="item-img">
+              <template #error>
+                <div class="img-fallback"><el-icon :size="26"><Picture /></el-icon></div>
+              </template>
+              <template #placeholder>
+                <div class="img-fallback"><el-icon class="is-loading" :size="26"><Loading /></el-icon></div>
+              </template>
+            </el-image>
             <div class="item-info">
               <h3 class="item-title text-ellipsis" @click="router.push(`/products/${item.id}`)">
                 {{ item.title }}
@@ -181,6 +188,18 @@ onMounted(loadData)
   height: 90px;
   border-radius: 8px;
   flex-shrink: 0;
+  :deep(.el-image__error) {
+    background: var(--bg-light);
+  }
+}
+.img-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  background: var(--bg-light);
 }
 .item-info {
   flex: 1;

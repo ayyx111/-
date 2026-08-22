@@ -137,8 +137,8 @@ async function loadProduct() {
     form.categoryId = res.category?.id
     form.price = res.price
     form.originalPrice = res.originalPrice || ''
-    form.conditionLevel = res.conditionLevel
-    form.tradeType = res.tradeType
+    form.conditionLevel = res.conditionLevel ?? res.condition_level ?? 2
+    form.tradeType = res.tradeType ?? res.trade_type ?? 3
     form.location = res.location || ''
     form.images = (res.images || [])
       .map((img) => (typeof img === 'object' ? img.image_url || img.url : img))
