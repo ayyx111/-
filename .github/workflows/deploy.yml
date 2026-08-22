@@ -40,7 +40,7 @@ jobs:
             MYSQL_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' campus_fish_mysql)
             REDIS_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' campus_fish_redis)
 
-            cat > .env.production << EOF
+            cat > .env << EOF
             NODE_ENV=production
             DB_TYPE=mysql
             DB_HOST=$MYSQL_IP
@@ -74,7 +74,7 @@ jobs:
             pm2 delete campus-fish-backend 2>/dev/null || true
 
             # 用 PM2 启动
-            pm2 start src/app.js --name campus-fish-backend --env production
+            pm2 start src/app.js --name campus-fish-backend
 
             # 保存 PM2 进程列表,确保开机自启
             pm2 save
