@@ -26,6 +26,11 @@ const ResponseUtil = require('./utils/response');
 const app = express();
 const server = http.createServer(app);
 
+// Trust Proxy (Nginx 反向代理时设置,确保 rate-limit 和客户端 IP 正确)
+if (process.env.TRUST_PROXY === 'true') {
+  app.set('trust proxy', 1);
+}
+
 // ============ Socket.IO ============
 const io = new Server(server, {
   path: '/ws/chat',

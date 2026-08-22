@@ -3,6 +3,25 @@
  */
 const { Op } = require('sequelize');
 const { Product, ProductImage, Category, User, Order, Review, UserBrowseHistory, Favorite } = require('../models');
+
+/**
+ * 为商品列表/单个商品补充 coverImage 字段(取第一张图片的 URL)
+ */
+function attachCoverImage(product) {
+  if (!product) return product;
+  const images = product.images || [];
+  const first = images[0];
+  if (first) {
+    product.setDataValue('coverImage', first.image_url || first.url || '');
+  } else {
+    product.setDataValue('coverImage', '');
+  }
+  return product;
+}
+function attachCoverImages(rows) {
+  rows.forEach(attachCoverImage);
+  return rows;
+}
 const { ApiError } = require('../middleware/errorHandler');
 const validator = require('../utils/validator');
 const { redis, redisKeys } = require('../config/cache');
@@ -74,7 +93,7 @@ async function listProducts(query) {
     offset
   });
 
-  return { list: rows, total: count, page, pageSize };
+  return { list: attachCoverImages(rows), total: count, page, pageSize };
 }
 
 /**
@@ -137,6 +156,8 @@ async function getProductDetail(id, userId) {
   });
   const productReviews = (ordersForProduct || []).flatMap((o) => (o.reviews || []).map((r) => r.toJSON()));
   result.reviews = productReviews;
+  // 补充 coverImage
+  result.coverImage = result.images && result.images.length ? result.images[0].image_url || '' : '';
   return result;
 }
 
@@ -314,7 +335,7 @@ async function myProducts(userId, query) {
     limit: pageSize,
     offset
   });
-  return { list: rows, total: count, page, pageSize };
+  return { list: attachCoverImages(rows), total: count, page, pageSize };
 }
 
 /**
